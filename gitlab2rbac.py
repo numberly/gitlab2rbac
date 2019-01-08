@@ -147,9 +147,10 @@ class KubernetesHelper(object):
         'kube-system'
     ]
 
-    def __init__(self, load_incluster_config, user_role_prefix='gitlab2rbac'):
+    def __init__(self, timeout, load_incluster_config, user_role_prefix='gitlab2rbac'):
         self.client_rbac = None
         self.client_core = None
+        self.timeout = timeout
         self.load_incluster_config = load_incluster_config
         self.user_role_prefix = user_role_prefix
 
@@ -168,7 +169,7 @@ class KubernetesHelper(object):
 
     def get_namespaces(self):
         try:
-            return [namespace.metadata.name for namespace in self.client_core.list_namespace().items if namespace.metadata.name not in self.PROTECTED_NAMESPACES]
+            return [namespace.metadata.name for namespace in self.client_core.list_namespace(_request_timeout=self.timeout).items if namespace.metadata.name not in self.PROTECTED_NAMESPACES]
         except ApiException as e:
             error = 'unable to retrieve namespaces :: {}'.format(eval(e.body)['message'])
             logging.error(error)
@@ -191,7 +192,8 @@ class KubernetesHelper(object):
         try:
             role_bindings = self.client_rbac.list_namespaced_role_binding(
                 namespace=namespace,
-                field_selector='metadata.name={}_{}'.format(self.user_role_prefix, name))
+                field_selector='metadata.name={}_{}'.format(self.user_role_prefix, name),
+                timeout_seconds=self.timeout)
             return bool(role_bindings.items)
         except ApiException as e:
             error = 'unable to check user role binding :: {}'.format(eval(e.body)['message'])
@@ -205,8 +207,6 @@ class KubernetesHelper(object):
             labels = {
                 'role_ref': role_ref,
                 'app': self.user_role_prefix,
-                # NOTE: a valid label must be an empty string or consist of alphanumeric characters
-                # can't use email, this label will be usefull to search deprecated role binding
                 'user_id': user_id
             }
             name = '{}_{}'.format(self.user_role_prefix, name)
@@ -224,7 +224,9 @@ class KubernetesHelper(object):
                     api_group='rbac.authorization.k8s.io',
                     name='gitlab2rbac:{}'.format(role_ref)))
             self.client_rbac.create_namespaced_role_binding(
-                namespace=namespace, body=role_binding)
+                namespace=namespace,
+                body=role_binding,
+                _request_timeout=self.timeout)
             logging.info(u'|_ role-binding created name={} namespace={}'.format(name, namespace))
         except ApiException as e:
             error = 'unable to create user role binding :: {}'.format(eval(e.body)['message'])
@@ -235,7 +237,9 @@ class KubernetesHelper(object):
     def delete_deprecated_user_role_binding(self, user_id, namespace, role_ref):
         try:
             role_bindings = self.client_rbac.list_namespaced_role_binding(
-                    namespace=namespace, label_selector="user_id={}".format(user_id))
+                namespace=namespace,
+                label_selector="user_id={}".format(user_id),
+                _request_timeout=self.timeout)
 
             for role_binding in role_bindings.items:
                 if role_binding.metadata.labels['role_ref'] == role_ref:
@@ -244,7 +248,8 @@ class KubernetesHelper(object):
                 self.client_rbac.delete_namespaced_role_binding(
                         name=role_binding.metadata.name,
                         namespace=namespace,
-                        body=role_binding)
+                        body=role_binding,
+                        _request_timeout=self.timeout)
                 logging.info(u'|_ role-binding deprecated name={} namespace={}'.format(role_binding.metadata.name, namespace))
         except ApiException as e:
             error = 'unable to delete deprecated user role binding :: {}'.format(eval(e.body)['message'])
@@ -326,6 +331,7 @@ def main():
         GITLAB_GROUP_SEARCH = environ.get('GITLAB_GROUP_SEARCH', 'gitlab2rbac')
         GITLAB_AUTO_CREATE = environ.get('GITLAB_AUTO_CREATE', True)
 
+        KUBERNETES_TIMEOUT = environ.get('KUBERNETES_TIMEOUT', 10)
         KUBERNETES_LOAD_INCLUSTER_CONFIG = environ.get('KUBERNETES_LOAD_INCLUSTER_CONFIG', False)
 
         GITLAB2RBAC_FREQUENCY = environ.get('GITLAB2RBAC_FREQUENCY', 60)
@@ -343,6 +349,7 @@ def main():
             gitlab_helper.connect()
 
             kubernertes_helper = KubernetesHelper(
+                    timeout=KUBERNETES_TIMEOUT,
                     load_incluster_config=KUBERNETES_LOAD_INCLUSTER_CONFIG)
             kubernertes_helper.connect()
 

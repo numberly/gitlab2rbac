@@ -92,6 +92,7 @@ $ virtualenv .venv && source .venv/bin/activate
 |GITLAB_TIMEOUT                     |Timeout for operations in seconds.                             |10          |
 |GITLAB_GROUP_SEARCH                |List projects from this group.                                 |gitlab2rbac |
 |GITLAB_AUTO_CREATE                 |Create all necessary stuff on GitLab (group, projects).        |True        |
+|KUBERNETES_TIMEOUT                 |Timeout for operations in seconds.                             |10          |
 |KUBERNETES_LOAD_INCLUSTER_CONFIG   |Load configuration inside kubernetes when scrip run as a pod.  |False       |
 |GITLAB2RBAC_FREQUENCY              |Update interval in seconds.                                    |60          |
 
