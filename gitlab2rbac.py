@@ -84,7 +84,7 @@ class GitlabHelper(object):
                         'id': '{}'.format(user.id),
                         'namespace': project.name
                     })
-                    logging.info("|__ found user={} email={} access_level={}".format(user.name, user.email, member.access_level))
+                    logging.info(u'|__ found user={} email={} access_level={}'.format(user.name, user.email, member.access_level))
             return users
         except Exception as e:
             logging.exception('unable to retrieve users :: {}'.format(e))
@@ -113,7 +113,7 @@ class GitlabHelper(object):
                     'shared_runners_enabled': False,
                     'visibility': 'internal',
                 })
-                logging.info('auto-create group={}'.format(group.name))
+                logging.info(u'auto-create group={}'.format(group.name))
             for namespace in namespaces:
                 for project in self.client.projects.list(search=namespace):
                     if project.namespace['name'] != self.group:
@@ -135,7 +135,7 @@ class GitlabHelper(object):
                         'snippets_enabled': False,
                         'wiki_enabled': False,
                     })
-                    logging.info('auto-create group={} project={}'.format(group.name, project.name))
+                    logging.info(u'auto-create group={} project={}'.format(group.name, project.name))
         except Exception as e:
             logging.exception('unable to create auto rbac :: {}'.format(e))
 
@@ -216,7 +216,7 @@ class KubernetesHelper(object):
                     name='gitlab2rbac:{}'.format(role_ref)))
             self.client_rbac.create_namespaced_role_binding(
                 namespace=namespace, body=role_binding)
-            logging.info('|_ role-binding created name={} namespace={}'.format(name, namespace))
+            logging.info(u'|_ role-binding created name={} namespace={}'.format(name, namespace))
         except Exception as e:
             logging.exception('unable to create user role binding :: {}'.format(e))
 
@@ -233,7 +233,7 @@ class KubernetesHelper(object):
                         name=role_binding.metadata.name,
                         namespace=namespace,
                         body=role_binding)
-                logging.info('|_ role-binding deprecated name={} namespace={}'.format(role_binding.metadata.name, namespace))
+                logging.info(u'|_ role-binding deprecated name={} namespace={}'.format(role_binding.metadata.name, namespace))
         except Exception as e:
             logging.exception('unable to delete deprecated user role binding :: {}'.format(e))
 
