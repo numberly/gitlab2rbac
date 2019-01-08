@@ -24,7 +24,7 @@ Before everything, `gitlab2rbac` requires:
 $ kubectl apply -f https://raw.githubusercontent.com/numberly/gitlab2rbac/master/deploy/configuration.yaml
 ```
 
-You will then need to create a [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) that contains all the useful information for `gitlab2rbac`.
+You will then need to create a [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) that contains all the useful information for `gitlab2rbac`:
 
 ```sh
 cat <<EOF | kubectl create -f -
