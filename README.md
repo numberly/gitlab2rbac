@@ -37,6 +37,7 @@ data:
   GITLAB_URL: https://{{ your GitLab instance URL }}
   GITLAB_PRIVATE_TOKEN: {{ your GitLab private token }}
   KUBERNETES_LOAD_INCLUSTER_CONFIG: "True"
+EOF
 ```
 
 
