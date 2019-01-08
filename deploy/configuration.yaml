@@ -1,0 +1,248 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gitlab2rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab2rbac:gitlab2rbac
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # NOTE: don't change the prefix gitlab2rbac:
+  name: gitlab2rbac:guest
+rules:
+- apiGroups: ["*"]
+  resources:
+  # workload
+  - cronjobs
+  - deployments
+  - ingresses
+  - jobs
+  - pods
+  - replicasets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab2rbac:reporter
+rules:
+- apiGroups: ["*"]
+  resources:
+  # workoad
+  - cronjobs
+  - configmaps
+  - deployments
+  - ingresses
+  - jobs
+  - pods
+  - replicasets
+  - services
+  # setup / config
+  - configmaps
+  - secrets
+  - daemonsets
+  - endpoints
+  - statefulset
+  # cluster status
+  - componentstatuses
+  - events
+  - namespaces
+  - nodes
+  # namespace setup
+  - crd
+  - limitranges
+  - resourcequotas
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab2rbac:developer
+rules:
+- apiGroups: ["*"]
+  resources:
+  # workoad
+  - cronjobs
+  - configmaps
+  - deployments
+  - ingresses
+  - jobs
+  - pods
+  - replicasets
+  - services
+  # setup / config
+  - configmaps
+  - secrets
+  - daemonsets
+  - endpoints
+  - statefulset
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["*"]
+  resources:
+  # cluster status
+  - componentstatuses
+  - events
+  - namespaces
+  - nodes
+  # namespace setup
+  - crd
+  - limitranges
+  - resourcequotas
+  - networkpolicies
+  - serviceaccounts
+  - rolebindings
+  - roles
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab2rbac:maintainer
+rules:
+- apiGroups: ["*"]
+  resources:
+  # workoad
+  - cronjobs
+  - configmaps
+  - deployments
+  - ingresses
+  - jobs
+  - pods
+  - replicasets
+  - services
+  # setup / config
+  - configmaps
+  - secrets
+  - daemonsets
+  - endpoints
+  - statefulset
+  # namespace setup
+  - crd
+  - limitranges
+  - resourcequotas
+  - networkpolicies
+  - serviceaccounts
+  - rolebindings
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups: ["*"]
+  resources:
+  # cluster status
+  - componentstatuses
+  - events
+  - namespaces
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab2rbac:guest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab2rbac:guest
+subjects:
+- kind: ServiceAccount
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    name: gitlab2rbac:reporter
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab2rbac:reporter
+subjects:
+- kind: ServiceAccount
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab2rbac:developer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab2rbac:developer
+subjects:
+- kind: ServiceAccount
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab2rbac:maintainer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab2rbac:maintainer
+subjects:
+- kind: ServiceAccount
+  name: gitlab2rbac
+  namespace: gitlab2rbac

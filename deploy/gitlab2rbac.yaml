@@ -1,0 +1,72 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitlab2rbac:gitlab2rbac
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab2rbac:gitlab2rbac
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab2rbac:gitlab2rbac
+subjects:
+- kind: ServiceAccount
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+  labels:
+    app: gitlab2rbac
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitlab2rbac
+  template:
+    metadata:
+      labels:
+        app: gitlab2rbac
+    spec:
+      serviceAccountName: gitlab2rbac
+      containers:
+      - name: gitlab2rbac
+        image: numberly/gitlab2rbac
+        envFrom:
+        - configMapRef:
+            name: gitlab2rbac
