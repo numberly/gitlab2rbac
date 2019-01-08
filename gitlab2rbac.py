@@ -5,6 +5,7 @@ from os import environ
 from time import sleep
 
 import kubernetes
+from kubernetes.client.rest import ApiException
 from gitlab import Gitlab
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s- %(message)s',
@@ -57,7 +58,7 @@ class GitlabHelper(object):
                     logging.info('|_ search group={} project={}'.format(group.name, project.name))
             return projects
         except Exception as e:
-            logging.exception('unable to get groups :: {}'.format(e))
+            logging.error('unable to get groups :: {}'.format(e))
             return []
 
     def get_users(self):
@@ -87,7 +88,7 @@ class GitlabHelper(object):
                     logging.info(u'|__ found user={} email={} access_level={}'.format(user.name, user.email, member.access_level))
             return users
         except Exception as e:
-            logging.exception('unable to retrieve users :: {}'.format(e))
+            logging.error('unable to retrieve users :: {}'.format(e))
             return []
 
     def create_auto_rbac(self, namespaces):
@@ -137,7 +138,7 @@ class GitlabHelper(object):
                     })
                     logging.info(u'auto-create group={} project={}'.format(group.name, project.name))
         except Exception as e:
-            logging.exception('unable to create auto rbac :: {}'.format(e))
+            logging.error('unable to create auto rbac :: {}'.format(e))
 
 
 class KubernetesHelper(object):
@@ -162,15 +163,20 @@ class KubernetesHelper(object):
             self.client_rbac = kubernetes.client.RbacAuthorizationV1Api()
             self.client_core = kubernetes.client.CoreV1Api()
         except Exception as e:
-            logging.exception('unable to connect :: {}'.format(e))
+            logging.error('unable to connect :: {}'.format(e))
             raise
 
     def get_namespaces(self):
         try:
             return [namespace.metadata.name for namespace in self.client_core.list_namespace().items if namespace.metadata.name not in self.PROTECTED_NAMESPACES]
-        except Exception as e:
-            logging.exception('unable to retrieve namespaces :: {}'.format(e))
+        except ApiException as e:
+            error = 'unable to retrieve namespaces :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
             return []
+        except Exception as e:
+            logging.error('unable to retrieve namespaces :: {}'.format(e))
+            return []
+
 
     def check_user_role_binding(self, namespace, name):
         """Check if user_role_binding exists.
@@ -187,8 +193,11 @@ class KubernetesHelper(object):
                 namespace=namespace,
                 field_selector='metadata.name={}_{}'.format(self.user_role_prefix, name))
             return bool(role_bindings.items)
+        except ApiException as e:
+            error = 'unable to check user role binding :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
         except Exception as e:
-            logging.exception('unable to check user role binding :: {}'.format(e))
+            logging.error('unable to check user role binding :: {}'.format(e))
             return False
 
     def create_user_role_binding(self, user, user_id, name, namespace, role_ref):
@@ -217,8 +226,11 @@ class KubernetesHelper(object):
             self.client_rbac.create_namespaced_role_binding(
                 namespace=namespace, body=role_binding)
             logging.info(u'|_ role-binding created name={} namespace={}'.format(name, namespace))
+        except ApiException as e:
+            error = 'unable to create user role binding :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
         except Exception as e:
-            logging.exception('unable to create user role binding :: {}'.format(e))
+            logging.error('unable to create user role binding :: {}'.format(e))
 
     def delete_deprecated_user_role_binding(self, user_id, namespace, role_ref):
         try:
@@ -234,8 +246,11 @@ class KubernetesHelper(object):
                         namespace=namespace,
                         body=role_binding)
                 logging.info(u'|_ role-binding deprecated name={} namespace={}'.format(role_binding.metadata.name, namespace))
+        except ApiException as e:
+            error = 'unable to delete deprecated user role binding :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
         except Exception as e:
-            logging.exception('unable to delete deprecated user role binding :: {}'.format(e))
+            logging.error('unable to delete deprecated user role binding :: {}'.format(e))
 
     def delete_deprecated_user_role_bindings(self, users):
         try:
@@ -256,9 +271,12 @@ class KubernetesHelper(object):
                         name=role_binding.metadata.name,
                         namespace=role_binding.metadata.namespace,
                         body=role_binding)
-                logging.info('|_ role-binding deprecated name={} namespace={}'.format(role_binding.metadata.name, role_binding.metadata.namespace))
+                logging.info(u'|_ role-binding deprecated name={} namespace={}'.format(role_binding.metadata.name, role_binding.metadata.namespace))
+        except ApiException as e:
+            error = 'unable to delete deprecated user role bindings :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
         except Exception as e:
-            logging.exception('unable to delete deprecated user role binding :: {}'.format(e))
+            logging.error('unable to delete deprecated user role bindings :: {}'.format(e))
 
 
 class Gitlab2RBAC(object):
@@ -297,7 +315,7 @@ class Gitlab2RBAC(object):
             self.kubernetes.delete_deprecated_user_role_bindings(
                     users=self.gitlab_users)
         except Exception as e:
-            logging.exception('unable to create user role bindings :: {}'.format(e))
+            logging.error('unable to create user role bindings :: {}'.format(e))
 
 
 def main():
@@ -335,7 +353,7 @@ def main():
             rbac()
             sleep(int(GITLAB2RBAC_FREQUENCY))
     except Exception as e:
-        logging.exception("{}".format(e))
+        logging.error("{}".format(e))
         exit(1)
 
 
