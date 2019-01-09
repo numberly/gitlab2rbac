@@ -66,7 +66,7 @@ class GitlabHelper(object):
             return projects
         except Exception as e:
             logging.error("unable to get groups :: {}".format(e))
-            return []
+        return []
 
     def get_users(self):
         """Returns all users from self.get_projects.
@@ -102,7 +102,7 @@ class GitlabHelper(object):
             return users
         except Exception as e:
             logging.error("unable to retrieve users :: {}".format(e))
-            return []
+        return []
 
     def auto_create(self, namespaces):
         try:
@@ -194,10 +194,9 @@ class KubernetesHelper(object):
                 eval(e.body)["message"]
             )
             logging.error(error)
-            return []
         except Exception as e:
             logging.error("unable to retrieve namespaces :: {}".format(e))
-            return []
+        return []
 
     def auto_create(self, namespaces):
         try:
@@ -216,10 +215,9 @@ class KubernetesHelper(object):
                 eval(e.body)["message"]
             )
             logging.error(error)
-            return []
         except Exception as e:
             logging.error("unable to auto create:: {}".format(e))
-            return []
+        return []
 
     def check_namespace(self, name):
         """Check if namespace exists.
