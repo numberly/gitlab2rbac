@@ -92,8 +92,10 @@ $ virtualenv .venv && source .venv/bin/activate
 |GITLAB_URL                         |Configure gitlab API target.                                   |            |
 |GITLAB_PRIVATE_TOKEN               |Configure gitlab API token.                                    |            |
 |GITLAB_TIMEOUT                     |Timeout for operations in seconds.                             |10          |
-|GITLAB_GROUP_SEARCH                |List projects from this group.                                 |gitlab2rbac |
-|GITLAB_AUTO_CREATE                 |Create GitLab groups/projects based on K8S namespaces.         |False       |
+|GITLAB_GROUPS_SEARCH               |Limit to groups matching the given value.                      |gitlab2rbac |
+|                                   |Specify multiple groups separated by commas.                   |            |
+|                                   |Leave empty to search in all groups.                           |            |
+|GITLAB_NAMESPACE_GRANULARITY       |Use permissions based on GitLab groups/projects.               |project     |
 |KUBERNETES_AUTO_CREATE             |Create K8S namespaces based on GitLab groups/projects.         |False       |
 |KUBERNETES_TIMEOUT                 |Timeout for operations in seconds.                             |10          |
 |KUBERNETES_LOAD_INCLUSTER_CONFIG   |Load configuration inside kubernetes when scrip run as a pod.  |False       |
