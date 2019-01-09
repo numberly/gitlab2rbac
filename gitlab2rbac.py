@@ -456,11 +456,11 @@ def main():
         GITLAB_PRIVATE_TOKEN = environ.get("GITLAB_PRIVATE_TOKEN", None)
         GITLAB_TIMEOUT = environ.get("GITLAB_TIMEOUT", 10)
         GITLAB_GROUP_SEARCH = environ.get("GITLAB_GROUP_SEARCH", "gitlab2rbac")
-        GITLAB_AUTO_CREATE = eval(environ.get("GITLAB_AUTO_CREATE", "True"))
+        GITLAB_AUTO_CREATE = eval(environ.get("GITLAB_AUTO_CREATE", "False"))
 
         KUBERNETES_TIMEOUT = environ.get("KUBERNETES_TIMEOUT", 10)
         KUBERNETES_AUTO_CREATE = eval(
-            environ.get("KUBERNETES_AUTO_CREATE", "True")
+            environ.get("KUBERNETES_AUTO_CREATE", "False")
         )
         KUBERNETES_LOAD_INCLUSTER_CONFIG = eval(
             environ.get("KUBERNETES_LOAD_INCLUSTER_CONFIG", "False")
