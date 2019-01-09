@@ -54,8 +54,8 @@ class GitlabHelper(object):
         """
         try:
             projects = []
-            for group in self.client.groups.list(search=self.group, all=True):
-                logging.info("search group={}".format(group.name))
+            group = self.get_group()
+            if group:
                 for project in group.projects.list(all=True):
                     projects.append(self.client.projects.get(project.id))
                     logging.info(
@@ -63,7 +63,7 @@ class GitlabHelper(object):
                             group.name, project.name
                         )
                     )
-            return projects
+                return projects
         except Exception as e:
             logging.error("unable to get groups :: {}".format(e))
         return []
@@ -104,13 +104,19 @@ class GitlabHelper(object):
             logging.error("unable to retrieve users :: {}".format(e))
         return []
 
+    def get_group(self):
+        try:
+            for group in self.client.groups.list(search=self.group, all=True):
+                if group.name == self.group:
+                    return group
+        except Exception as e:
+            logging.error("unable to get group :: {}".format(e))
+
     def auto_create(self, namespaces):
         try:
             # NOTE: we use list method instead of get to avoid 404 exception
-            for group in self.client.groups.list(search=self.group):
-                if group.name == self.group:
-                    break
-            else:
+            group = self.get_group()
+            if not group:
                 group = self.client.groups.create(
                     {
                         "name": self.group,
