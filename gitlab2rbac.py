@@ -94,7 +94,7 @@ class GitlabHelper(object):
                             "access_level": member.access_level,
                             "email": user.email,
                             "id": "{}".format(user.id),
-                            "namespace": namespace.name,
+                            "namespace": slugify(namespace.name),
                         }
                     )
                     logging.info(
