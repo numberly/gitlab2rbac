@@ -5,8 +5,9 @@ from os import environ
 from time import sleep
 
 import kubernetes
-from kubernetes.client.rest import ApiException
 from gitlab import Gitlab
+from kubernetes.client.rest import ApiException
+from slugify import slugify
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s- %(message)s',
                     level=logging.INFO)
@@ -91,15 +92,7 @@ class GitlabHelper(object):
             logging.error('unable to retrieve users :: {}'.format(e))
             return []
 
-    def create_auto_rbac(self, namespaces):
-        """Create all related stuff for gitlab2rbac (group, projects).
-
-        Args:
-            namespaces (list): The name of all namespaces from kubernetes.
-
-        Returns:
-            bool: list for succes, empty otherwise.
-        """
+    def auto_create(self, namespaces):
         try:
             # NOTE: we use list method instead of get to avoid 404 exception
             for group in self.client.groups.list(search=self.group):
@@ -177,6 +170,46 @@ class KubernetesHelper(object):
         except Exception as e:
             logging.error('unable to retrieve namespaces :: {}'.format(e))
             return []
+
+    def auto_create(self, namespaces):
+        try:
+            for namespace in namespaces:
+                slug_namespace = slugify(namespace)
+                if self.check_namespace(name=slug_namespace):
+                    continue
+                metadata = kubernetes.client.V1ObjectMeta(name=slug_namespace)
+                namespace_body = kubernetes.client.V1Namespace(
+                    metadata=metadata)
+                self.client_core.create_namespace(body=namespace_body)
+                logging.info('auto create namespace={}'.format(slug_namespace))
+        except ApiException as e:
+            error = 'unable to auto create :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
+            return []
+        except Exception as e:
+            logging.error('unable to auto create:: {}'.format(e))
+            return []
+
+    def check_namespace(self, name):
+        """Check if namespace exists.
+
+           Args:
+               name (str): kubernetes namespace.
+
+           Returns:
+               bool: True if exists, False otherwise.
+        """
+        try:
+            namespace = self.client_core.list_namespace(
+                field_selector='metadata.name={}'.format(name),
+                timeout_seconds=self.timeout)
+            return bool(namespace.items)
+        except ApiException as e:
+            error = 'unable to check namespace :: {}'.format(eval(e.body)['message'])
+            logging.error(error)
+        except Exception as e:
+            logging.error('unable to check namespace :: {}'.format(e))
+            return False
 
 
     def check_user_role_binding(self, namespace, name):
@@ -286,15 +319,21 @@ class KubernetesHelper(object):
 
 class Gitlab2RBAC(object):
 
-    def __init__(self, gitlab, kubernetes, gitlab_auto_create):
+    def __init__(self, gitlab, kubernetes, gitlab_auto_create, kubernetes_auto_create):
         self.gitlab = gitlab
         self.kubernetes = kubernetes
         self.gitlab_auto_create = gitlab_auto_create
+        self.kubernetes_auto_create = kubernetes_auto_create
         self.gitlab_users = self.gitlab.get_users()
 
     def __call__(self):
         if self.gitlab_auto_create:
-            self.gitlab.create_auto_rbac(namespaces=self.kubernetes.get_namespaces())
+            self.gitlab.auto_create(
+                namespaces=self.kubernetes.get_namespaces())
+
+        if self.kubernetes_auto_create:
+            ns = [project.name for project in self.gitlab.get_projects()]
+            self.kubernetes.auto_create(namespaces=ns)
 
         self.create_user_role_bindings()
 
@@ -332,13 +371,16 @@ def main():
         GITLAB_AUTO_CREATE = eval(environ.get('GITLAB_AUTO_CREATE', 'True'))
 
         KUBERNETES_TIMEOUT = environ.get('KUBERNETES_TIMEOUT', 10)
+        KUBERNETES_AUTO_CREATE = eval(environ.get('KUBERNETES_AUTO_CREATE', 'True'))
         KUBERNETES_LOAD_INCLUSTER_CONFIG = eval(environ.get('KUBERNETES_LOAD_INCLUSTER_CONFIG', 'False'))
 
         GITLAB2RBAC_FREQUENCY = environ.get('GITLAB2RBAC_FREQUENCY', 60)
 
         if not GITLAB_URL or not GITLAB_PRIVATE_TOKEN:
-            logging.error('missing variables GITLAB_URL / GITLAB_PRIVATE_TOKEN')
-            exit(1)
+            raise Exception('missing variables GITLAB_URL / GITLAB_PRIVATE_TOKEN')
+
+        if GITLAB_AUTO_CREATE and KUBERNETES_AUTO_CREATE:
+            raise Exception("can't have both variables GITLAB_AUTO_CREATE and KUBERNETES_AUTO_CREATE set on True")
 
         while True:
             gitlab_helper = GitlabHelper(
@@ -356,7 +398,8 @@ def main():
             rbac = Gitlab2RBAC(
                     gitlab=gitlab_helper,
                     kubernetes=kubernertes_helper,
-                    gitlab_auto_create=GITLAB_AUTO_CREATE)
+                    gitlab_auto_create=GITLAB_AUTO_CREATE,
+                    kubernetes_auto_create=KUBERNETES_AUTO_CREATE)
             rbac()
             sleep(int(GITLAB2RBAC_FREQUENCY))
     except Exception as e:
