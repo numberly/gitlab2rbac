@@ -47,7 +47,7 @@ class GitlabHelper(object):
             raise Exception("unable to connect on gitlab :: {}".format(e))
 
     def get_projects(self):
-        """Get all projects unders the configured namespace (GITLAB_GROUP_SEARCH).
+        """Get all projects under the configured namespace (GITLAB_GROUP_SEARCH).
 
         Returns:
             list[gitlab.Project]: list for success, empty otherwise.
