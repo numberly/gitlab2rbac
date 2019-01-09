@@ -163,10 +163,15 @@ class KubernetesHelper(object):
     def auto_create(self, namespaces):
         try:
             for namespace in namespaces:
-                slug_namespace = slugify(namespace)
+                slug_namespace = slugify(namespace.name)
+                labels = {
+                    "app.kubernetes.io/name": slug_namespace,
+                    "app.kubernetes.io/managed-by": "gitlab2rbac"
+                }
                 if self.check_namespace(name=slug_namespace):
                     continue
-                metadata = kubernetes.client.V1ObjectMeta(name=slug_namespace)
+                metadata = kubernetes.client.V1ObjectMeta(
+                    name=slug_namespace, labels=labels)
                 namespace_body = kubernetes.client.V1Namespace(
                     metadata=metadata
                 )
@@ -238,9 +243,9 @@ class KubernetesHelper(object):
     ):
         try:
             labels = {
-                "role_ref": role_ref,
-                "app": self.user_role_prefix,
-                "user_id": user_id,
+                "app.kubernetes.io/managed-by": "gitlab2rbac",
+                "gitlab2rbac.kubernetes.io/role_ref": role_ref,
+                "gitlab2rbac.kubernetes.io/user_id": user_id,
             }
             name = "{}_{}".format(self.user_role_prefix, name)
             role_binding = kubernetes.client.V1RoleBinding(
@@ -289,10 +294,10 @@ class KubernetesHelper(object):
                 if not role_binding.metadata.labels:
                     continue
 
-                if "user_id" not in role_binding.metadata.labels:
+                if "gitlab2rbac.kubernetes.io/user_id" not in role_binding.metadata.labels:
                     continue
 
-                if role_binding.metadata.labels["user_id"] in users_ids:
+                if role_binding.metadata.labels["gitlab2rbac.kubernetes.io/user_id"] in users_ids:
                     continue
 
                 self.client_rbac.delete_namespaced_role_binding(
