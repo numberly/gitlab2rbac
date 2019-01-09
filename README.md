@@ -1,5 +1,7 @@
 # gitlab2rbac
 
+> Please note that this is a beta version of the `gitlab2rbac` project which is still undergoing final testing before its official release.
+
 `gitlab2rbac` ensures that your Kubernetes cluster users have the same permissions than on GitLab.
 
 It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) by project as input and generates [RBAC](https://kubernetes.io/docs/admin/authorization/rbac/) objects inside Kubernetes.
