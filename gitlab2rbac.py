@@ -243,7 +243,7 @@ class KubernetesHelper(object):
             logging.error(error)
         except Exception as e:
             logging.error("unable to check namespace :: {}".format(e))
-            return False
+        return False
 
     def check_user_role_binding(self, namespace, name):
         """Check if user_role_binding exists.
@@ -271,7 +271,7 @@ class KubernetesHelper(object):
             logging.error(error)
         except Exception as e:
             logging.error("unable to check user role binding :: {}".format(e))
-            return False
+        return False
 
     def create_user_role_binding(
         self, user, user_id, name, namespace, role_ref
