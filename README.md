@@ -88,14 +88,15 @@ $ virtualenv .venv && source .venv/bin/activate
 `gitlab2rbac` supports multiple environment variables for advanced configuration:
 
 | Flag                              | Description                                                   | Default    | 
-|:---------------------------------:|:-------------------------------------------------------------:|:----------:|
+|:----------------------------------|:--------------------------------------------------------------|:-----------|
 |GITLAB_URL                         |Configure gitlab API target.                                   |            |
 |GITLAB_PRIVATE_TOKEN               |Configure gitlab API token.                                    |            |
 |GITLAB_TIMEOUT                     |Timeout for operations in seconds.                             |10          |
 |GITLAB_GROUPS_SEARCH               |Limit to groups matching the given value.                      |gitlab2rbac |
 |                                   |Specify multiple groups separated by commas.                   |            |
 |                                   |Leave empty to search in all groups.                           |            |
-|GITLAB_NAMESPACE_GRANULARITY       |Use permissions based on GitLab groups/projects.               |project     |
+|GITLAB_NAMESPACE_GRANULARITY       |Use permissions from GitLab projects.                          |project     |
+|                                   |Use permissions from GitLab groups.                            |group       |
 |KUBERNETES_AUTO_CREATE             |Create K8S namespaces based on GitLab groups/projects.         |False       |
 |KUBERNETES_TIMEOUT                 |Timeout for operations in seconds.                             |10          |
 |KUBERNETES_LOAD_INCLUSTER_CONFIG   |Load configuration inside kubernetes when scrip run as a pod.  |False       |
