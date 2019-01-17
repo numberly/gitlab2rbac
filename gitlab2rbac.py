@@ -21,7 +21,7 @@ class GitlabHelper(object):
         20: "reporter",
         30: "developer",
         40: "maintainer",
-        50: "owner",
+        50: "maintainer", # NOTE: owner is only usable when your permissions are based on group.
     }
 
     def __init__(self, url, token, timeout, groups, namespace_granularity):
