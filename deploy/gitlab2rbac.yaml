@@ -64,6 +64,9 @@ spec:
         app: gitlab2rbac
     spec:
       serviceAccountName: gitlab2rbac
+      securityContext:
+        runAsNonRoot: true
+        runAsUser:  65534 # nobody
       containers:
       - name: gitlab2rbac
         image: numberly/gitlab2rbac
