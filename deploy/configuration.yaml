@@ -34,7 +34,7 @@ metadata:
 rules:
 - apiGroups: ["*"]
   resources:
-  # workoad
+  # workload
   - cronjobs
   - configmaps
   - deployments
@@ -71,7 +71,7 @@ metadata:
 rules:
 - apiGroups: ["*"]
   resources:
-  # workoad
+  # workload
   - cronjobs
   - configmaps
   - deployments
@@ -122,7 +122,7 @@ metadata:
 rules:
 - apiGroups: ["*"]
   resources:
-  # workoad
+  # workload
   - cronjobs
   - configmaps
   - deployments
