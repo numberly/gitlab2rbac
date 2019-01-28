@@ -8,6 +8,22 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: gitlab2rbac:authenticated
+rules:
+- apiGroups: ["*"]
+  resources:
+    - componentstatuses
+    - namespaces
+    - nodes
+  verbs:
+    - get
+    - list
+    - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   # NOTE: don't change the prefix gitlab2rbac:
   name: gitlab2rbac:guest
 rules:
@@ -15,6 +31,7 @@ rules:
   resources:
   # workload
   - cronjobs
+  - daemonsets
   - deployments
   - ingresses
   - jobs
@@ -48,12 +65,8 @@ rules:
   - secrets
   - daemonsets
   - endpoints
-  - statefulset
-  # cluster status
-  - componentstatuses
   - events
-  - namespaces
-  - nodes
+  - statefulset
   # namespace setup
   - crd
   - limitranges
@@ -85,6 +98,7 @@ rules:
   - secrets
   - daemonsets
   - endpoints
+  - events
   - statefulset
   verbs:
   - create
@@ -96,11 +110,6 @@ rules:
   - watch
 - apiGroups: ["*"]
   resources:
-  # cluster status
-  - componentstatuses
-  - events
-  - namespaces
-  - nodes
   # namespace setup
   - crd
   - limitranges
@@ -136,6 +145,7 @@ rules:
   - secrets
   - daemonsets
   - endpoints
+  - events
   - statefulset
   # namespace setup
   - crd
@@ -153,17 +163,20 @@ rules:
   - patch
   - update
   - watch
-- apiGroups: ["*"]
-  resources:
-  # cluster status
-  - componentstatuses
-  - events
-  - namespaces
-  - nodes
-  verbs:
-  - get
-  - list
-  - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitlab2rbac:authenticated
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitlab2rbac:authenticated
+subjects:
+- kind: Group
+  name: system:authenticated
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
