@@ -71,6 +71,7 @@ rules:
   - secrets
   - endpoints
   - events
+  - pods/log
   # namespace setup
   - crd
   - limitranges
@@ -105,6 +106,7 @@ rules:
   - secrets
   - endpoints
   - events
+  - pods/log
   verbs:
   - create
   - delete
@@ -153,6 +155,7 @@ rules:
   - secrets
   - endpoints
   - events
+  - pods/log
   # namespace setup
   - crd
   - limitranges
