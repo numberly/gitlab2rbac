@@ -107,6 +107,7 @@ rules:
   - endpoints
   - events
   - pods/log
+  - pods/exec
   verbs:
   - create
   - delete
@@ -156,6 +157,7 @@ rules:
   - endpoints
   - events
   - pods/log
+  - pods/exec
   # namespace setup
   - crd
   - limitranges
