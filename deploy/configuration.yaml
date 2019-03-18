@@ -93,6 +93,7 @@ rules:
   - cronjobs
   - daemonsets
   - deployments
+  - deployments/scale
   - horizontalpodautoscalers
   - ingresses
   - jobs
@@ -143,6 +144,7 @@ rules:
   - cronjobs
   - daemonsets
   - deployments
+  - deployments/scale
   - horizontalpodautoscalers
   - ingresses
   - jobs
