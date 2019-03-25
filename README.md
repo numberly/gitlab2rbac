@@ -83,6 +83,138 @@ $ virtualenv .venv && source .venv/bin/activate
 ```
 
 
+## Default configuration
+### Roles description
+| Role       | Use cases                | Typical examples                    |
+|:----------:|:------------------------:|-------------------------------------|
+| Guest      | Inspiration              | Someone from another team           |
+| Reporter   | Complete overview, tests | Project manager, marketing          |
+| Developer  | Deployment, debug        | Engineer, technical project manager |
+| Maintainer | Sensitive configurations | Lead/senior engineer                |
+
+### RBAC grid
+What we mean by `R` and `W` is defined by Kubernetes API verbs:
+* Read (`R`): `get`, `list`, `watch`
+* Write (`W`): `create`, `update`, `patch`, `delete`, `deletecollection`
+
+#### Cluster-wide
+Any authenticated user has access to those cluster-wide resources:
+* apiservices
+* componentstatuses
+* namespaces
+* nodes
+
+#### Workload
+| Resource                 | Guest | Reporter | Developer | Maintainer |
+|:------------------------:|:-----:|:--------:|:---------:|:----------:|
+| cronjobs                 | R     | R        | R+W       | R+W        |
+| daemonsets               | R     | R        | R+W       | R+W        |
+| deployments              | R     | R        | R+W       | R+W        |
+| horizontalpodautoscalers | R     | R        | R+W       | R+W        |
+| ingresses                | R     | R        | R+W       | R+W        |
+| jobs                     | R     | R        | R+W       | R+W        |
+| pods                     | R     | R        | R+W       | R+W        |
+| replicasets              | R     | R        | R+W       | R+W        |
+| replicationcontrollers   | R     | R        | R+W       | R+W        |
+| services                 | R     | R        | R+W       | R+W        |
+| statefulsets             | R     | R        | R+W       | R+W        |
+| events                   |       | R        | R         | R+W        |
+
+#### Actions
+| Resource                     | Guest | Reporter | Developer | Maintainer |
+|:----------------------------:|:-----:|:--------:|:---------:|:----------:|
+| pods/log                     |       | R+W      | R+W       | R+W        |
+| pods/portforward             |       | R+W      | R+W       | R+W        |
+| deployments/rollback         |       |          | R+W       | R+W        |
+| deployments/scale            |       |          | R+W       | R+W        |
+| pods/attach                  |       |          | R+W       | R+W        |
+| pods/exec                    |       |          | R+W       | R+W        |
+| replicasets/scale            |       |          | R+W       | R+W        |
+| replicationcontrollers/scale |       |          | R+W       | R+W        |
+| statefulsets/scale           |       |          | R+W       | R+W        |
+
+#### Setup
+| Resource        | Guest | Reporter | Developer | Maintainer |
+|:---------------:|:-----:|:--------:|:---------:|:----------:|
+| configmaps      | R     | R        | R+W       | R+W        |
+| endpoints       | R     | R        | R+W       | R+W        |
+| networkpolicies | R     | R        | R+W       | R+W        |
+| serviceaccounts | R     | R        | R+W       | R+W        |
+| certificates    |       |          | R+W       | R+W        |
+| secrets         |       |          | R+W       | R+W        |
+| limitranges     |       |          | R         | R+W        |
+| resourcequotas  |       |          | R         | R+W        |
+| rolebindings    |       |          | R         | R+W        |
+| roles           |       |          | R         | R+W        |
+
+<!-- Not relevant for users (yet?)
+
+#### Other cluster-wide resources
+
+* apiservices/status
+* certificatesigningrequests
+* certificatesigningrequests/approval
+* certificatesigningrequests/status
+* clusterissuers
+* clusterrolebindings
+* clusterroles
+* customresourcedefinitions
+* customresourcedefinitions/status
+* initializerconfigurations
+* mutatingwebhookconfigurations
+* namespaces/finalize
+* namespaces/status
+* nodes/proxy
+* nodes/status
+* persistentvolumes
+* persistentvolumes/status
+* podsecuritypolicies
+* priorityclasses
+* selfsubjectaccessreviews
+* selfsubjectrulesreviews
+* storageclasses
+* subjectaccessreviews
+* tokenreviews
+* validatingwebhookconfigurations
+* volumeattachments
+* volumeattachments/status
+
+#### Other namespaced resources
+
+| Resource                        | Guest | Reporter | Developer | Maintainer |
+|:-------------------------------:|:-----:|:--------:|:---------:|:----------:|
+| bindings                        |       |          |           |            |
+| challenges                      |       |          |           |            |
+| controllerrevisions             |       |          |           |            |
+| cronjobs/status                 |       |          |           |            |
+| daemonsets/status               |       |          |           |            |
+| deployments/status              |       |          |           |            |
+| horizontalpodautoscalers/status |       |          |           |            |
+| ingresses/status                |       |          |           |            |
+| issuers                         |       |          |           |            |
+| jobs/status                     |       |          |           |            |
+| leases                          |       |          |           |            |
+| localsubjectaccessreviews       |       |          |           |            |
+| orders                          |       |          |           |            |
+| persistentvolumeclaims          |       |          |           |            |
+| persistentvolumeclaims/status   |       |          |           |            |
+| poddisruptionbudgets            |       |          |           |            |
+| poddisruptionbudgets/status     |       |          |           |            |
+| podpreset                       |       |          |           |            |
+| pods/binding                    |       |          |           |            |
+| pods/proxy                      |       |          |           |            |
+| pods/eviction                   |       |          |           |            |
+| pods/status                     |       |          |           |            |
+| podtemplates                    |       |          |           |            |
+| replicasets/status              |       |          |           |            |
+| replicationcontrollers/status   |       |          |           |            |
+| resourcequotas/status           |       |          |           |            |
+| services/proxy                  |       |          |           |            |
+| services/status                 |       |          |           |            |
+| statefulsets/status             |       |          |           |            |
+-->
+
+
 ## Advanced configuration
 
 `gitlab2rbac` supports multiple environment variables for advanced configuration:
