@@ -12,6 +12,7 @@ metadata:
 rules:
 - apiGroups: ["*"]
   resources:
+    - apiservices
     - componentstatuses
     - namespaces
     - nodes
@@ -41,6 +42,11 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
+  # setup
+  - configmaps
+  - endpoints
+  - networkpolicies
+  - serviceaccounts
   verbs:
   - get
   - list
@@ -52,6 +58,19 @@ kind: ClusterRole
 metadata:
   name: gitlab2rbac:reporter
 rules:
+- apiGroups: ["*"]
+  resources:
+  # actions
+  - pods/log
+  - pods/portforward
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups: ["*"]
   resources:
   # workload
@@ -66,16 +85,12 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
-  # setup / config
-  - configmaps
-  - secrets
-  - endpoints
   - events
-  - pods/log
-  # namespace setup
-  - crd
-  - limitranges
-  - resourcequotas
+  # setup
+  - configmaps
+  - endpoints
+  - networkpolicies
+  - serviceaccounts
   verbs:
   - get
   - list
@@ -102,13 +117,23 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
-  # setup / config
-  - configmaps
-  - secrets
-  - endpoints
-  - events
+  # actions
   - pods/log
+  - pods/portforward
+  - deployments/rollback
+  - deployments/scale
+  - pods/attach
   - pods/exec
+  - replicasets/scale
+  - replicationcontrollers/scale
+  - statefulsets/scale
+  # setup
+  - configmaps
+  - endpoints
+  - networkpolicies
+  - serviceaccounts
+  - certificates
+  - secrets
   verbs:
   - create
   - delete
@@ -119,12 +144,11 @@ rules:
   - watch
 - apiGroups: ["*"]
   resources:
-  # namespace setup
-  - crd
+  # workload
+  - events
+  # setup
   - limitranges
   - resourcequotas
-  - networkpolicies
-  - serviceaccounts
   - rolebindings
   - roles
   verbs:
@@ -153,19 +177,26 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
-  # setup / config
-  - configmaps
-  - secrets
-  - endpoints
   - events
+  # actions
   - pods/log
+  - pods/portforward
+  - deployments/rollback
+  - deployments/scale
+  - pods/attach
   - pods/exec
-  # namespace setup
-  - crd
-  - limitranges
-  - resourcequotas
+  - replicasets/scale
+  - replicationcontrollers/scale
+  - statefulsets/scale
+  # setup
+  - configmaps
+  - endpoints
   - networkpolicies
   - serviceaccounts
+  - certificates
+  - secrets
+  - limitranges
+  - resourcequotas
   - rolebindings
   - roles
   verbs:
