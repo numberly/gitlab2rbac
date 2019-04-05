@@ -98,8 +98,9 @@ class GitlabHelper(object):
                         }
                     )
                     logging.info(
-                        u"|__ found user={} email={} access_level={}".format(
-                            user.name, user.email, member.access_level
+                        u"|namespace={} user={} email={} access_level={}".format(
+                            namespace.name, user.name, user.email,
+                            member.access_level
                         )
                     )
             return users
