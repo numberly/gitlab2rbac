@@ -112,8 +112,9 @@ class GitlabHelper(object):
         groups = []
         for group in self.groups:
             for result in self.client.groups.list(search=group, all=True):
-                logging.info(u"|found group={}".format(result.name))
-                groups.append(result)
+                if result.parent_id is None:
+                    logging.info(u"|found group={}".format(result.name))
+                    groups.append(result)
         return groups
 
 
