@@ -21,7 +21,7 @@ class GitlabHelper(object):
         20: "reporter",
         30: "developer",
         40: "maintainer",
-        50: "maintainer", # NOTE: owner is only usable when your permissions are based on group.
+        50: "maintainer",  # NOTE: owner is only usable when your permissions are based on group.
     }
 
     def __init__(self, url, token, timeout, groups, namespace_granularity):
@@ -93,10 +93,7 @@ class GitlabHelper(object):
             for user in self.client.users.list(all=True):
                 if user.is_admin:
                     admins.append(
-                        {
-                            "email": user.email,
-                            "id": "{}".format(user.id),
-                        }
+                        {"email": user.email, "id": "{}".format(user.id)}
                     )
                     logging.info(
                         u"|user={} email={} access_level=admin".format(
@@ -136,8 +133,10 @@ class GitlabHelper(object):
                     )
                     logging.info(
                         u"|namespace={} user={} email={} access_level={}".format(
-                            namespace.name, user.name, user.email,
-                            member.access_level
+                            namespace.name,
+                            user.name,
+                            user.email,
+                            member.access_level,
                         )
                     )
             return users
@@ -205,12 +204,13 @@ class KubernetesHelper(object):
                 slug_namespace = slugify(namespace.name)
                 labels = {
                     "app.kubernetes.io/name": slug_namespace,
-                    "app.kubernetes.io/managed-by": "gitlab2rbac"
+                    "app.kubernetes.io/managed-by": "gitlab2rbac",
                 }
                 if self.check_namespace(name=slug_namespace):
                     continue
                 metadata = kubernetes.client.V1ObjectMeta(
-                    name=slug_namespace, labels=labels)
+                    name=slug_namespace, labels=labels
+                )
                 namespace_body = kubernetes.client.V1Namespace(
                     metadata=metadata
                 )
@@ -270,8 +270,7 @@ class KubernetesHelper(object):
                 )
             else:
                 role_bindings = self.client_rbac.list_cluster_role_binding(
-                    field_selector=field_selector,
-                    timeout_seconds=self.timeout,
+                    field_selector=field_selector, timeout_seconds=self.timeout
                 )
             return bool(role_bindings.items)
         except ApiException as e:
@@ -318,8 +317,7 @@ class KubernetesHelper(object):
                 )
             else:
                 self.client_rbac.create_cluster_role_binding(
-                    body=role_binding,
-                    _request_timeout=self.timeout,
+                    body=role_binding, _request_timeout=self.timeout
                 )
             logging.info(
                 u"|_ role-binding created name={} namespace={}".format(
@@ -345,10 +343,18 @@ class KubernetesHelper(object):
                 if not role_binding.metadata.labels:
                     continue
 
-                if "gitlab2rbac.kubernetes.io/user_id" not in role_binding.metadata.labels:
+                if (
+                    "gitlab2rbac.kubernetes.io/user_id"
+                    not in role_binding.metadata.labels
+                ):
                     continue
 
-                if role_binding.metadata.labels["gitlab2rbac.kubernetes.io/user_id"] in users_ids:
+                if (
+                    role_binding.metadata.labels[
+                        "gitlab2rbac.kubernetes.io/user_id"
+                    ]
+                    in users_ids
+                ):
                     continue
 
                 self.client_rbac.delete_namespaced_role_binding(
@@ -376,8 +382,7 @@ class KubernetesHelper(object):
 
 
 class Gitlab2RBAC(object):
-    def __init__(
-            self, gitlab, kubernetes, kubernetes_auto_create):
+    def __init__(self, gitlab, kubernetes, kubernetes_auto_create):
         self.gitlab = gitlab
         self.kubernetes = kubernetes
         self.kubernetes_auto_create = kubernetes_auto_create
@@ -400,7 +405,7 @@ class Gitlab2RBAC(object):
                         user=admin["email"],
                         user_id=admin["id"],
                         name=role_binding_name,
-                        role_ref="admin"
+                        role_ref="admin",
                     )
         except Exception as e:
             logging.error(
@@ -442,8 +447,12 @@ def main():
         GITLAB_URL = environ.get("GITLAB_URL", None)
         GITLAB_PRIVATE_TOKEN = environ.get("GITLAB_PRIVATE_TOKEN", None)
         GITLAB_TIMEOUT = environ.get("GITLAB_TIMEOUT", 10)
-        GITLAB_GROUPS_SEARCH = environ.get("GITLAB_GROUPS_SEARCH", "gitlab2rbac").split(",")
-        GITLAB_NAMESPACE_GRANULARITY = environ.get("GITLAB_NAMESPACE_GRANULARITY", "project")
+        GITLAB_GROUPS_SEARCH = environ.get(
+            "GITLAB_GROUPS_SEARCH", "gitlab2rbac"
+        ).split(",")
+        GITLAB_NAMESPACE_GRANULARITY = environ.get(
+            "GITLAB_NAMESPACE_GRANULARITY", "project"
+        )
 
         KUBERNETES_TIMEOUT = environ.get("KUBERNETES_TIMEOUT", 10)
         KUBERNETES_AUTO_CREATE = eval(
@@ -466,7 +475,7 @@ def main():
                 token=GITLAB_PRIVATE_TOKEN,
                 timeout=GITLAB_TIMEOUT,
                 groups=GITLAB_GROUPS_SEARCH,
-                namespace_granularity=GITLAB_NAMESPACE_GRANULARITY
+                namespace_granularity=GITLAB_NAMESPACE_GRANULARITY,
             )
             gitlab_helper.connect()
 
