@@ -71,6 +71,37 @@ class GitlabHelper(object):
             logging.error("unable to get groups :: {}".format(e))
         return []
 
+    def get_admins(self):
+        """Returns all admins.
+
+        e.g. user {
+                'email': 'foo@bar.com',
+                'id': '123',
+            }
+
+        Returns:
+            list[dict]: list for success, empty otherwise.
+        """
+        try:
+            admins = []
+            for user in self.client.users.list(all=True):
+                if user.is_admin:
+                    admins.append(
+                        {
+                            "email": user.email,
+                            "id": "{}".format(user.id),
+                        }
+                    )
+                    logging.info(
+                        u"|user={} email={} access_level=admin".format(
+                            user.name, user.email
+                        )
+                    )
+            return admins
+        except Exception as e:
+            logging.error("unable to retrieve admins :: {}".format(e))
+        return []
+
     def get_users(self):
         """Returns all users from groups/projects.
 
@@ -212,24 +243,30 @@ class KubernetesHelper(object):
             logging.error("unable to check namespace :: {}".format(e))
         return False
 
-    def check_user_role_binding(self, namespace, name):
-        """Check if user_role_binding exists.
+    def check_role_binding(self, name, namespace=None):
+        """Check if role binding exists.
 
            Args:
-               namespace (str): kubernetes namespace.
                name (str): user_role_binding name.
+               namespace (str): kubernetes namespace.
 
            Returns:
                bool: True if exists, False otherwise.
         """
         try:
-            role_bindings = self.client_rbac.list_namespaced_role_binding(
-                namespace=namespace,
-                field_selector="metadata.name={}_{}".format(
-                    self.user_role_prefix, name
-                ),
-                timeout_seconds=self.timeout,
-            )
+            full_name = "{}_{}".format(self.user_role_prefix, name)
+            field_selector = "metadata.name={}".format(full_name)
+            if namespace:
+                role_bindings = self.client_rbac.list_namespaced_role_binding(
+                    namespace=namespace,
+                    field_selector=field_selector,
+                    timeout_seconds=self.timeout,
+                )
+            else:
+                role_bindings = self.client_rbac.list_cluster_role_binding(
+                    field_selector=field_selector,
+                    timeout_seconds=self.timeout,
+                )
             return bool(role_bindings.items)
         except ApiException as e:
             error = "unable to check user role binding :: {}".format(
@@ -240,8 +277,8 @@ class KubernetesHelper(object):
             logging.error("unable to check user role binding :: {}".format(e))
         return False
 
-    def create_user_role_binding(
-        self, user, user_id, name, namespace, role_ref
+    def create_role_binding(
+        self, user, user_id, name, role_ref, namespace=None
     ):
         try:
             labels = {
@@ -267,11 +304,17 @@ class KubernetesHelper(object):
                     name="gitlab2rbac:{}".format(role_ref),
                 ),
             )
-            self.client_rbac.create_namespaced_role_binding(
-                namespace=namespace,
-                body=role_binding,
-                _request_timeout=self.timeout,
-            )
+            if namespace:
+                self.client_rbac.create_namespaced_role_binding(
+                    namespace=namespace,
+                    body=role_binding,
+                    _request_timeout=self.timeout,
+                )
+            else:
+                self.client_rbac.create_cluster_role_binding(
+                    body=role_binding,
+                    _request_timeout=self.timeout,
+                )
             logging.info(
                 u"|_ role-binding created name={} namespace={}".format(
                     name, namespace
@@ -332,27 +375,46 @@ class Gitlab2RBAC(object):
         self.gitlab = gitlab
         self.kubernetes = kubernetes
         self.kubernetes_auto_create = kubernetes_auto_create
-        self.gitlab_users = self.gitlab.get_users()
 
     def __call__(self):
         if self.kubernetes_auto_create:
             self.kubernetes.auto_create(namespaces=self.gitlab.namespaces())
 
+        self.create_admin_role_bindings()
         self.create_user_role_bindings()
+
+    def create_admin_role_bindings(self):
+        try:
+            for admin in self.gitlab.get_admins():
+                role_binding_name = "{}_admin".format(admin["email"])
+                if not self.kubernetes.check_role_binding(
+                    name=role_binding_name
+                ):
+                    self.kubernetes.create_role_binding(
+                        user=admin["email"],
+                        user_id=admin["id"],
+                        name=role_binding_name,
+                        role_ref="admin"
+                    )
+        except Exception as e:
+            logging.error(
+                "unable to create admin role bindings :: {}".format(e)
+            )
 
     def create_user_role_bindings(self):
         try:
-            for user in self.gitlab_users:
+            gitlab_users = self.gitlab.get_users()
+            for user in gitlab_users:
                 namespace = user["namespace"]
                 access_level = self.gitlab.ACCESS_LEVEL_REFERENCE[
                     user["access_level"]
                 ]
                 role_binding_name = "{}_{}".format(user["email"], access_level)
 
-                if not self.kubernetes.check_user_role_binding(
-                    namespace=namespace, name=role_binding_name
+                if not self.kubernetes.check_role_binding(
+                    name=role_binding_name, namespace=namespace
                 ):
-                    self.kubernetes.create_user_role_binding(
+                    self.kubernetes.create_role_binding(
                         user=user["email"],
                         user_id=user["id"],
                         name=role_binding_name,
@@ -361,7 +423,7 @@ class Gitlab2RBAC(object):
                     )
 
             self.kubernetes.delete_deprecated_user_role_bindings(
-                users=self.gitlab_users
+                users=gitlab_users
             )
         except Exception as e:
             logging.error(

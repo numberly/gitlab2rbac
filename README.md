@@ -92,6 +92,8 @@ Any authenticated user has access to those cluster-wide resources:
 * namespaces
 * nodes
 
+Any admin on GitLab is an admin of the Kubernetes cluster.
+
 #### Workload
 | Resource                 | Guest | Reporter | Developer | Maintainer |
 |:------------------------:|:-----:|:--------:|:---------:|:----------:|
