@@ -31,10 +31,8 @@ class GitlabHelper(object):
         self.timeout = timeout
         self.token = token
         self.url = url
-
-        self.namespaces = self.get_projects
-        if namespace_granularity == "group":
-            self.namespaces = self.get_groups
+        self.namespace_granularity = namespace_granularity
+        self.namespaces = []
 
     def connect(self):
         """Performs an authentication via private token.
@@ -49,6 +47,14 @@ class GitlabHelper(object):
             self.client.auth()
         except Exception as e:
             raise Exception("unable to connect on gitlab :: {}".format(e))
+
+        try:
+            if self.namespace_granularity == "group":
+                self.namespaces = self.get_groups()
+            else:
+                self.namespaces = self.get_projects()
+        except Exception as e:
+            raise Exception("unable to define namespaces :: {}".format(e))
 
     def get_projects(self):
         """Get all projects under the configured namespace (GITLAB_GROUP_SEARCH).
@@ -68,7 +74,7 @@ class GitlabHelper(object):
                     )
             return projects
         except Exception as e:
-            logging.error("unable to get groups :: {}".format(e))
+            logging.error("unable to get projects :: {}".format(e))
         return []
 
     def get_admins(self):
@@ -117,7 +123,7 @@ class GitlabHelper(object):
         """
         try:
             users = []
-            for namespace in self.namespaces():
+            for namespace in self.namespaces:
                 for member in namespace.members.list():
                     user = self.client.users.get(member.id)
                     users.append(
@@ -378,7 +384,7 @@ class Gitlab2RBAC(object):
 
     def __call__(self):
         if self.kubernetes_auto_create:
-            self.kubernetes.auto_create(namespaces=self.gitlab.namespaces())
+            self.kubernetes.auto_create(namespaces=self.gitlab.namespaces)
 
         self.create_admin_role_bindings()
         self.create_user_role_bindings()
