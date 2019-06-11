@@ -336,10 +336,11 @@ class KubernetesHelper(object):
         try:
             users_ids = [user["id"] for user in users]
             role_bindings = (
-                self.client_rbac.list_role_binding_for_all_namespaces()
+                self.client_rbac.list_role_binding_for_all_namespaces().items +
+                self.client_rbac.list_cluster_role_binding().items
             )
 
-            for role_binding in role_bindings.items:
+            for role_binding in role_bindings:
                 if not role_binding.metadata.labels:
                     continue
 
