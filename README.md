@@ -124,18 +124,20 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 | statefulsets/scale           |       |          | R+W       | R+W        |
 
 #### Setup
-| Resource        | Guest | Reporter | Developer | Maintainer |
-|:---------------:|:-----:|:--------:|:---------:|:----------:|
-| configmaps      | R     | R        | R+W       | R+W        |
-| endpoints       | R     | R        | R+W       | R+W        |
-| networkpolicies | R     | R        | R+W       | R+W        |
-| serviceaccounts | R     | R        | R+W       | R+W        |
-| certificates    |       |          | R+W       | R+W        |
-| secrets         |       |          | R+W       | R+W        |
-| limitranges     |       |          | R         | R+W        |
-| resourcequotas  |       |          | R         | R+W        |
-| rolebindings    |       |          | R         | R+W        |
-| roles           |       |          | R         | R+W        |
+| Resource                      | Guest | Reporter | Developer | Maintainer |
+|:-----------------------------:|:-----:|:--------:|:---------:|:----------:|
+| configmaps                    | R     | R        | R+W       | R+W        |
+| endpoints                     | R     | R        | R+W       | R+W        |
+| networkpolicies               | R     | R        | R+W       | R+W        |
+| persistentvolumeclaims        | R     | R        | R+W       | R+W        |
+| persistentvolumeclaims/status | R     | R        | R+W       | R+W        |
+| serviceaccounts               | R     | R        | R+W       | R+W        |
+| certificates                  |       |          | R+W       | R+W        |
+| secrets                       |       |          | R+W       | R+W        |
+| limitranges                   |       |          | R         | R+W        |
+| resourcequotas                |       |          | R         | R+W        |
+| rolebindings                  |       |          | R         | R+W        |
+| roles                         |       |          | R         | R+W        |
 
 <!-- Not relevant for users (yet?)
 
@@ -186,8 +188,6 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 | leases                          |       |          |           |            |
 | localsubjectaccessreviews       |       |          |           |            |
 | orders                          |       |          |           |            |
-| persistentvolumeclaims          |       |          |           |            |
-| persistentvolumeclaims/status   |       |          |           |            |
 | poddisruptionbudgets            |       |          |           |            |
 | poddisruptionbudgets/status     |       |          |           |            |
 | podpreset                       |       |          |           |            |
