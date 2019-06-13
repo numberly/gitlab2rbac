@@ -46,6 +46,8 @@ rules:
   - configmaps
   - endpoints
   - networkpolicies
+  - persistentvolumeclaims
+  - persistentvolumeclaims/status
   - serviceaccounts
   verbs:
   - get
@@ -77,6 +79,7 @@ rules:
   - cronjobs
   - daemonsets
   - deployments
+  - events
   - horizontalpodautoscalers
   - ingresses
   - jobs
@@ -85,11 +88,12 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
-  - events
   # setup
   - configmaps
   - endpoints
   - networkpolicies
+  - persistentvolumeclaims
+  - persistentvolumeclaims/status
   - serviceaccounts
   verbs:
   - get
@@ -118,22 +122,24 @@ rules:
   - services
   - statefulsets
   # actions
-  - pods/log
-  - pods/portforward
   - deployments/rollback
   - deployments/scale
   - pods/attach
   - pods/exec
+  - pods/log
+  - pods/portforward
   - replicasets/scale
   - replicationcontrollers/scale
   - statefulsets/scale
   # setup
+  - certificates
   - configmaps
   - endpoints
   - networkpolicies
-  - serviceaccounts
-  - certificates
+  - persistentvolumeclaims
+  - persistentvolumeclaims/status
   - secrets
+  - serviceaccounts
   verbs:
   - create
   - delete
@@ -169,6 +175,7 @@ rules:
   - daemonsets
   - deployments
   - deployments/scale
+  - events
   - horizontalpodautoscalers
   - ingresses
   - jobs
@@ -177,28 +184,29 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
-  - events
   # actions
-  - pods/log
-  - pods/portforward
   - deployments/rollback
   - deployments/scale
   - pods/attach
   - pods/exec
+  - pods/log
+  - pods/portforward
   - replicasets/scale
   - replicationcontrollers/scale
   - statefulsets/scale
   # setup
+  - certificates
   - configmaps
   - endpoints
-  - networkpolicies
-  - serviceaccounts
-  - certificates
-  - secrets
   - limitranges
+  - networkpolicies
+  - persistentvolumeclaims
+  - persistentvolumeclaims/status
   - resourcequotas
   - rolebindings
   - roles
+  - secrets
+  - serviceaccounts
   verbs:
   - create
   - delete
