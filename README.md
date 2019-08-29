@@ -9,7 +9,7 @@ It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) 
 
 ## Installation
 ### Requirements
-Before everything, `gitlab2rbac` requires:
+Before anything else, `gitlab2rbac` requires:
 
 * [RBAC enabled on your Kubernetes cluster](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
 * [GitLab API with v4 support](https://docs.gitlab.com/ee/api/v3_to_v4.html)
