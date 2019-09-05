@@ -121,7 +121,7 @@ class GitlabHelper(object):
         try:
             users = []
             for namespace in self.namespaces:
-                for member in namespace.members.list():
+                for member in namespace.members.list(all=True):
                     user = self.client.users.get(member.id)
                     users.append(
                         {
