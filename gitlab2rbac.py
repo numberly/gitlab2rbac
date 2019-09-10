@@ -1,6 +1,7 @@
 #!/usr/bin/python env
 
 import logging
+from collections import defaultdict
 from os import environ
 from time import sleep
 
@@ -334,31 +335,34 @@ class KubernetesHelper(object):
 
     def delete_deprecated_user_role_bindings(self, users):
         try:
-            users_ids = [user["id"] for user in users]
-            role_bindings = (
-                self.client_rbac.list_role_binding_for_all_namespaces()
-            )
+            users_grouped_by_ns = defaultdict(list)
+            for user in users:
+                users_grouped_by_ns[user["namespace"]].append(user)
 
-            for role_binding in role_bindings.items:
-                try:
-                    user_id = role_binding.metadata.labels[
-                        "gitlab2rbac.kubernetes.io/user_id"
-                    ]
-                except (TypeError, KeyError):
-                    continue
+            for ns in users_grouped_by_ns:
+                role_bindings = self.client_rbac.list_namespaced_role_binding(ns)
+                users_ids = [user["id"] for user in users_grouped_by_ns[ns]]
 
-                if user_id not in users_ids:
-                    self.client_rbac.delete_namespaced_role_binding(
-                        name=role_binding.metadata.name,
-                        namespace=role_binding.metadata.namespace,
-                        body=role_binding,
-                    )
-                    logging.info(
-                        u"|_ role-binding deprecated name={} namespace={}".format(
-                            role_binding.metadata.name,
-                            role_binding.metadata.namespace,
+                for role_binding in role_bindings.items:
+                    try:
+                        user_id = role_binding.metadata.labels[
+                            "gitlab2rbac.kubernetes.io/user_id"
+                        ]
+                    except (TypeError, KeyError):
+                        continue
+
+                    if user_id not in users_ids:
+                        self.client_rbac.delete_namespaced_role_binding(
+                            name=role_binding.metadata.name,
+                            namespace=role_binding.metadata.namespace,
+                            body=role_binding,
                         )
-                    )
+                        logging.info(
+                            u"|_ role-binding deprecated name={} namespace={}".format(
+                                role_binding.metadata.name,
+                                role_binding.metadata.namespace,
+                            )
+                        )
         except ApiException as e:
             error = "unable to delete deprecated user role bindings :: {}".format(
                 eval(e.body)["message"]
