@@ -382,12 +382,18 @@ class Gitlab2RBAC(object):
         if self.kubernetes_auto_create:
             self.kubernetes.auto_create(namespaces=self.gitlab.namespaces)
 
-        self.create_admin_role_bindings()
-        self.create_user_role_bindings()
+        gitlab_users = self.gitlab.get_users()
+        gitlab_admins = self.gitlab.get_admins()
 
-    def create_admin_role_bindings(self):
+        self.create_admin_role_bindings(admins=gitlab_admins)
+        self.create_user_role_bindings(users=gitlab_users)
+        self.kubernetes.delete_deprecated_user_role_bindings(
+            users=gitlab_users
+        )
+
+    def create_admin_role_bindings(self, admins):
         try:
-            for admin in self.gitlab.get_admins():
+            for admin in admins:
                 role_binding_name = "{}_admin".format(admin["email"])
                 if not self.kubernetes.check_role_binding(
                     name=role_binding_name
@@ -403,10 +409,9 @@ class Gitlab2RBAC(object):
                 "unable to create admin role bindings :: {}".format(e)
             )
 
-    def create_user_role_bindings(self):
+    def create_user_role_bindings(self, users):
         try:
-            gitlab_users = self.gitlab.get_users()
-            for user in gitlab_users:
+            for user in users:
                 namespace = user["namespace"]
                 access_level = self.gitlab.ACCESS_LEVEL_REFERENCE[
                     user["access_level"]
@@ -423,10 +428,6 @@ class Gitlab2RBAC(object):
                         namespace=namespace,
                         role_ref=access_level,
                     )
-
-            self.kubernetes.delete_deprecated_user_role_bindings(
-                users=gitlab_users
-            )
         except Exception as e:
             logging.error(
                 "unable to create user role bindings :: {}".format(e)
