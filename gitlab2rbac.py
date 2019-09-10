@@ -340,34 +340,25 @@ class KubernetesHelper(object):
             )
 
             for role_binding in role_bindings.items:
-                if not role_binding.metadata.labels:
-                    continue
-
-                if (
-                    "gitlab2rbac.kubernetes.io/user_id"
-                    not in role_binding.metadata.labels
-                ):
-                    continue
-
-                if (
-                    role_binding.metadata.labels[
+                try:
+                    user_id = role_binding.metadata.labels[
                         "gitlab2rbac.kubernetes.io/user_id"
                     ]
-                    in users_ids
-                ):
+                except (TypeError, ValueError):
                     continue
 
-                self.client_rbac.delete_namespaced_role_binding(
-                    name=role_binding.metadata.name,
-                    namespace=role_binding.metadata.namespace,
-                    body=role_binding,
-                )
-                logging.info(
-                    u"|_ role-binding deprecated name={} namespace={}".format(
-                        role_binding.metadata.name,
-                        role_binding.metadata.namespace,
+                if user_id in users_ids:
+                    self.client_rbac.delete_namespaced_role_binding(
+                        name=role_binding.metadata.name,
+                        namespace=role_binding.metadata.namespace,
+                        body=role_binding,
                     )
-                )
+                    logging.info(
+                        u"|_ role-binding deprecated name={} namespace={}".format(
+                            role_binding.metadata.name,
+                            role_binding.metadata.namespace,
+                        )
+                    )
         except ApiException as e:
             error = "unable to delete deprecated user role bindings :: {}".format(
                 eval(e.body)["message"]
