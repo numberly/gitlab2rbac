@@ -375,6 +375,39 @@ class KubernetesHelper(object):
                 )
             )
 
+    def delete_deprecated_cluster_role_bindings(self, users):
+        try:
+            cluster_users_ids = [user["id"] for user in users]
+            for role_binding in self.client_rbac.list_cluster_role_binding().items:
+                try:
+                    user_id = role_binding.metadata.labels[
+                        "gitlab2rbac.kubernetes.io/user_id"
+                    ]
+                except (TypeError, ValueError, KeyError):
+                    continue
+
+                if user_id not in cluster_users_ids:
+                    self.client_rbac.delete_cluster_role_binding(
+                        name=role_binding.metadata.name,
+                        body=role_binding,
+                    )
+                    logging.info(
+                        u"|_ cluster-role-binding deprecated name={}".format(
+                            role_binding.metadata.name,
+                        )
+                    )
+        except ApiException as e:
+            error = "unable to delete deprecated cluster role bindings :: {}".format(
+                eval(e.body)["message"]
+            )
+            logging.error(error)
+        except Exception as e:
+            logging.error(
+                "unable to delete deprecated cluster role bindings :: {}".format(
+                    e
+                )
+            )
+
 
 class Gitlab2RBAC(object):
     def __init__(self, gitlab, kubernetes, kubernetes_auto_create):
@@ -393,6 +426,9 @@ class Gitlab2RBAC(object):
         self.create_user_role_bindings(users=gitlab_users)
         self.kubernetes.delete_deprecated_user_role_bindings(
             users=gitlab_users
+        )
+        self.kubernetes.delete_deprecated_cluster_role_bindings(
+            users=gitlab_admins
         )
 
     def create_admin_role_bindings(self, admins):
