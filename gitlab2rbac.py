@@ -344,7 +344,7 @@ class KubernetesHelper(object):
                     user_id = role_binding.metadata.labels[
                         "gitlab2rbac.kubernetes.io/user_id"
                     ]
-                except (TypeError, ValueError):
+                except (TypeError, KeyError):
                     continue
 
                 if user_id not in users_ids:
