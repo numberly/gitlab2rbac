@@ -347,7 +347,7 @@ class KubernetesHelper(object):
                 except (TypeError, ValueError):
                     continue
 
-                if user_id in users_ids:
+                if user_id not in users_ids:
                     self.client_rbac.delete_namespaced_role_binding(
                         name=role_binding.metadata.name,
                         namespace=role_binding.metadata.namespace,
