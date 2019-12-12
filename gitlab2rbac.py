@@ -104,6 +104,7 @@ class GitlabHelper(object):
             return admins
         except Exception as e:
             logging.error("unable to retrieve admins :: {}".format(e))
+            exit(1)
         return []
 
     def get_users(self):
@@ -143,6 +144,7 @@ class GitlabHelper(object):
             return users
         except Exception as e:
             logging.error("unable to retrieve users :: {}".format(e))
+            exit(1)
         return []
 
     def get_groups(self):
