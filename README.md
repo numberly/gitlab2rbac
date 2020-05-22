@@ -218,7 +218,7 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 |`KUBERNETES_AUTO_CREATE`             |Replicate GitLab groups/projects as Kubernetes namespaces.                   |False       |
 |`KUBERNETES_TIMEOUT`                 |Timeout for Kubernetes operations, in seconds.                               |10          |
 |`KUBERNETES_LOAD_INCLUSTER_CONFIG`   |Load configuration inside Kubernetes when gitlab2rbac runs as a pod.         |False       |
-|`GITLAB2RBAC_FREQUENCY`              |Update interval in seconds.                                                  |60          |
+|`GITLAB2RBAC_FREQUENCY`              |Update interval in seconds (0 means one shot).                               |0           |
 
 ## License
 MIT
