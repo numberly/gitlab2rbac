@@ -25,7 +25,7 @@ class GitlabHelper(object):
         50: "maintainer",  # NOTE: owner is only usable when your permissions are based on group.
     }
 
-    def __init__(self, url, token, timeout, groups, namespace_granularity):
+    def __init__(self, url, token, timeout, groups, namespace_granularity, admins_group):
         self.client = None
         self.gitlab_users = []
         self.groups = groups
@@ -33,6 +33,7 @@ class GitlabHelper(object):
         self.token = token
         self.url = url
         self.namespace_granularity = namespace_granularity
+        self.admins_group = admins_group
         self.namespaces = []
 
     def connect(self):
@@ -90,6 +91,10 @@ class GitlabHelper(object):
             list[dict]: list for success, empty otherwise.
         """
         try:
+            if self.admins_group:
+                ns = self.client.groups.list(search=self.admins_group)
+                return self.get_users(from_namespaces=ns) or []
+
             admins = []
             for user in self.client.users.list(all=True):
                 if user.is_admin:
@@ -107,8 +112,11 @@ class GitlabHelper(object):
             exit(1)
         return []
 
-    def get_users(self):
+    def get_users(self, from_namespaces=None):
         """Returns all users from groups/projects.
+
+        Args:
+          from_namespaces (list): Retrieve users from this namespaces.
 
         e.g. user {
                 'access_level': 'reporter',
@@ -122,7 +130,8 @@ class GitlabHelper(object):
         """
         try:
             users = []
-            for namespace in self.namespaces:
+            namespaces = from_namespaces or self.namespaces
+            for namespace in namespaces:
                 for member in namespace.members.list(all=True):
                     user = self.client.users.get(member.id)
                     users.append(
@@ -487,6 +496,7 @@ def main():
         GITLAB_NAMESPACE_GRANULARITY = environ.get(
             "GITLAB_NAMESPACE_GRANULARITY", "project"
         )
+        GITLAB_ADMINS_GROUP = environ.get("GITLAB_ADMINS_GROUP", None)
 
         KUBERNETES_TIMEOUT = environ.get("KUBERNETES_TIMEOUT", 10)
         KUBERNETES_AUTO_CREATE = eval(
@@ -510,6 +520,7 @@ def main():
                 timeout=GITLAB_TIMEOUT,
                 groups=GITLAB_GROUPS_SEARCH,
                 namespace_granularity=GITLAB_NAMESPACE_GRANULARITY,
+                admins_group=GITLAB_ADMINS_GROUP
             )
             gitlab_helper.connect()
 
