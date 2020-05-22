@@ -506,7 +506,7 @@ def main():
             environ.get("KUBERNETES_LOAD_INCLUSTER_CONFIG", "False")
         )
 
-        GITLAB2RBAC_FREQUENCY = environ.get("GITLAB2RBAC_FREQUENCY", 60)
+        GITLAB2RBAC_FREQUENCY = int(environ.get("GITLAB2RBAC_FREQUENCY", 0))
 
         if not GITLAB_URL or not GITLAB_PRIVATE_TOKEN:
             raise Exception(
@@ -536,7 +536,9 @@ def main():
                 kubernetes_auto_create=KUBERNETES_AUTO_CREATE,
             )
             rbac()
-            sleep(int(GITLAB2RBAC_FREQUENCY))
+            if not GITLAB2RBAC_FREQUENCY:
+                exit(0)
+            sleep(GITLAB2RBAC_FREQUENCY)
     except Exception as e:
         logging.error("{}".format(e))
         exit(1)
