@@ -30,6 +30,13 @@ spec:
       containers:
       - name: gitlab2rbac
         image: numberly/gitlab2rbac
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
         envFrom:
         - configMapRef:
             name: gitlab2rbac
