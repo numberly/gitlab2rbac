@@ -108,6 +108,7 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 | replicationcontrollers   | R     | R        | R+W       | R+W        |
 | services                 | R     | R        | R+W       | R+W        |
 | statefulsets             | R     | R        | R+W       | R+W        |
+| verticalpodautoscalers   | R     | R        | R+W       | R+W        |
 | events                   |       | R        | R         | R+W        |
 
 #### Actions

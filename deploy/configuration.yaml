@@ -42,6 +42,7 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
+  - verticalpodautoscalers
   # setup
   - configmaps
   - endpoints
@@ -88,6 +89,7 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
+  - verticalpodautoscalers
   # setup
   - configmaps
   - endpoints
@@ -121,6 +123,7 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
+  - verticalpodautoscalers
   # actions
   - deployments/rollback
   - deployments/scale
@@ -184,6 +187,7 @@ rules:
   - replicationcontrollers
   - services
   - statefulsets
+  - verticalpodautoscalers
   # actions
   - deployments/rollback
   - deployments/scale
