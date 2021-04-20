@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gitlab2rbac.fullname" . }}
+  labels:
+    {{- include "gitlab2rbac.labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.data | nindent 2 }}

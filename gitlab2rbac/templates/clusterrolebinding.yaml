@@ -1,0 +1,15 @@
+{{- $Values := .Values -}}
+{{- range $type := .Values.ClusterRoleBinding.type }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $type.name }}
+roleRef:
+  apiGroup: {{ $type.roleRefapiGroup | default "rbac.authorization.k8s.io"}}
+  kind: {{ $type.roleRefkind | default "ClusterRole" }}
+  name: {{ $type.roleRefname | default $type.name }}
+subjects:
+{{- toYaml $type.subjects | nindent 0 }}
+
+---
+{{- end }}
