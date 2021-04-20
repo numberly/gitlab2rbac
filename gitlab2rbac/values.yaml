@@ -1,0 +1,292 @@
+replicaCount: 1
+
+image:
+  repository: numberly/gitlab2rbac
+  pullPolicy: IfNotPresent
+  # tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsUser:  0 # nobody
+  # runAsUser:  65534 # nobody
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+
+
+resources: {}
+
+envFrom:
+- configMapRef:
+    name: gitlab2rbac
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+ClusterRole:
+  type:
+    - name: gitlab2rbac:authenticated
+      rules:
+      - apiGroups: ["*"]
+        resources:
+          - apiservices
+          - componentstatuses
+          - namespaces
+          - nodes
+        verbs:
+          - get
+          - list
+          - watch
+    - name: gitlab2rbac:guest
+      rules:
+      - apiGroups: ["*"]
+        resources:
+        # workload
+        - cronjobs
+        - daemonsets
+        - deployments
+        - horizontalpodautoscalers
+        - ingresses
+        - jobs
+        - pods
+        - replicasets
+        - replicationcontrollers
+        - services
+        - statefulsets
+        - verticalpodautoscalers
+        # setup
+        - configmaps
+        - endpoints
+        - networkpolicies
+        - persistentvolumeclaims
+        - persistentvolumeclaims/status
+        - serviceaccounts
+        verbs:
+        - get
+        - list
+        - watch
+    - name: gitlab2rbac:reporter
+      rules:
+      - apiGroups: ["*"]
+        resources:
+        # actions
+        - pods/log
+        - pods/portforward
+        verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+      - apiGroups: ["*"]
+        resources:
+        # workload
+        - cronjobs
+        - daemonsets
+        - deployments
+        - events
+        - horizontalpodautoscalers
+        - ingresses
+        - jobs
+        - pods
+        - replicasets
+        - replicationcontrollers
+        - services
+        - statefulsets
+        - verticalpodautoscalers
+        # setup
+        - configmaps
+        - endpoints
+        - networkpolicies
+        - persistentvolumeclaims
+        - persistentvolumeclaims/status
+        - serviceaccounts
+        verbs:
+        - get
+        - list
+        - watch
+    - name: gitlab2rbac:developer
+      rules:
+      - apiGroups: ["*"]
+        resources:
+        # workload
+        - cronjobs
+        - daemonsets
+        - deployments
+        - deployments/scale
+        - horizontalpodautoscalers
+        - ingresses
+        - jobs
+        - pods
+        - replicasets
+        - replicationcontrollers
+        - services
+        - statefulsets
+        - verticalpodautoscalers
+        # actions
+        - deployments/rollback
+        - deployments/scale
+        - pods/attach
+        - pods/exec
+        - pods/log
+        - pods/portforward
+        - replicasets/scale
+        - replicationcontrollers/scale
+        - statefulsets/scale
+        # setup
+        - certificates
+        - configmaps
+        - endpoints
+        - networkpolicies
+        - persistentvolumeclaims
+        - persistentvolumeclaims/status
+        - secrets
+        - serviceaccounts
+        verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+      - apiGroups: ["*"]
+        resources:
+        # workload
+        - events
+        # setup
+        - limitranges
+        - resourcequotas
+        - rolebindings
+        - roles
+        verbs:
+        - get
+        - list
+        - watch
+    - name: gitlab2rbac:maintainer
+      rules:
+      - apiGroups: ["*"]
+        resources:
+        # workload
+        - cronjobs
+        - daemonsets
+        - deployments
+        - deployments/scale
+        - events
+        - horizontalpodautoscalers
+        - ingresses
+        - jobs
+        - pods
+        - replicasets
+        - replicationcontrollers
+        - services
+        - statefulsets
+        - verticalpodautoscalers
+        # actions
+        - deployments/rollback
+        - deployments/scale
+        - pods/attach
+        - pods/exec
+        - pods/log
+        - pods/portforward
+        - replicasets/scale
+        - replicationcontrollers/scale
+        - statefulsets/scale
+        # setup
+        - certificates
+        - configmaps
+        - endpoints
+        - limitranges
+        - networkpolicies
+        - persistentvolumeclaims
+        - persistentvolumeclaims/status
+        - resourcequotas
+        - rolebindings
+        - roles
+        - secrets
+        - serviceaccounts
+        verbs:
+        - create
+        - delete
+        - get
+        - list
+        - patch
+        - update
+        - watch
+    - name: gitlab2rbac:admin
+      rules:
+      - apiGroups: ['*']
+        resources: ['*']
+        verbs: ['*']
+      - nonResourceURLs: ['*']
+        verbs: ['*']
+
+ClusterRoleBinding:
+  type:
+    - name: gitlab2rbac:authenticated
+      subjects:
+      - kind: Group
+        name: system:authenticated
+        apiGroup: rbac.authorization.k8s.io
+    - name: gitlab2rbac:guest
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab2rbac
+        namespace: gitlab2rbac
+    - name: gitlab2rbac:reporter
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab2rbac
+        namespace: gitlab2rbac
+    - name: gitlab2rbac:developer
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab2rbac
+        namespace: gitlab2rbac
+    - name: gitlab2rbac:maintainer
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab2rbac
+        namespace: gitlab2rbac
+    - name: gitlab2rbac:admin
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab2rbac
+        namespace: gitlab2rbac
+    - name: gitlab2rbac
+      roleRefname: cluster-admin
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab-admin
+        namespace: kube-system

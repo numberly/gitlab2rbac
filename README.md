@@ -14,6 +14,14 @@ Before anything else, `gitlab2rbac` requires:
 * [RBAC enabled on your Kubernetes cluster](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
 * [GitLab API with v4 support](https://docs.gitlab.com/ee/api/v3_to_v4.html)
 
+### Deploy with helm
+
+```
+helm install gitlab2rbac /path/to/chart/gitla2rbac --create-namespace gitlab2rbac --set data.GITLAB_URL=<your_gitlab_instance_url>,data.GITLAB_PRIVATE_TOKEN=<your_private_token>,data.KUBERNETES_LOAD_INCLUSTER_CONFIG=True
+```
+
+or
+
 ### Configuration
 `gitlab2rbac` needs a namespace, cluster roles and cluster role bindings. Create them with:
 
