@@ -89,6 +89,8 @@ ClusterRole:
         - networkpolicies
         - persistentvolumeclaims
         - persistentvolumeclaims/status
+        - poddisruptionbudgets
+        - poddisruptionbudgets/status
         - serviceaccounts
         verbs:
         - get
@@ -131,6 +133,8 @@ ClusterRole:
         - networkpolicies
         - persistentvolumeclaims
         - persistentvolumeclaims/status
+        - poddisruptionbudgets
+        - poddisruptionbudgets/status
         - serviceaccounts
         verbs:
         - get
@@ -171,6 +175,8 @@ ClusterRole:
         - networkpolicies
         - persistentvolumeclaims
         - persistentvolumeclaims/status
+        - poddisruptionbudgets
+        - poddisruptionbudgets/status
         - secrets
         - serviceaccounts
         verbs:
@@ -231,6 +237,8 @@ ClusterRole:
         - networkpolicies
         - persistentvolumeclaims
         - persistentvolumeclaims/status
+        - poddisruptionbudgets
+        - poddisruptionbudgets/status
         - resourcequotas
         - rolebindings
         - roles
