@@ -49,6 +49,8 @@ rules:
   - networkpolicies
   - persistentvolumeclaims
   - persistentvolumeclaims/status
+  - poddisruptionbudgets
+  - poddisruptionbudgets/status
   - serviceaccounts
   verbs:
   - get
@@ -96,6 +98,8 @@ rules:
   - networkpolicies
   - persistentvolumeclaims
   - persistentvolumeclaims/status
+  - poddisruptionbudgets
+  - poddisruptionbudgets/status
   - serviceaccounts
   verbs:
   - get
@@ -141,6 +145,8 @@ rules:
   - networkpolicies
   - persistentvolumeclaims
   - persistentvolumeclaims/status
+  - poddisruptionbudgets
+  - poddisruptionbudgets/status
   - secrets
   - serviceaccounts
   verbs:
@@ -206,6 +212,8 @@ rules:
   - networkpolicies
   - persistentvolumeclaims
   - persistentvolumeclaims/status
+  - poddisruptionbudgets
+  - poddisruptionbudgets/status
   - resourcequotas
   - rolebindings
   - roles

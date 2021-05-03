@@ -132,6 +132,8 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 | networkpolicies               | R     | R        | R+W       | R+W        |
 | persistentvolumeclaims        | R     | R        | R+W       | R+W        |
 | persistentvolumeclaims/status | R     | R        | R+W       | R+W        |
+| poddisruptionbudgets          | R     | R        | R+W       | R+W        |
+| poddisruptionbudgets/status   | R     | R        | R+W       | R+W        |
 | serviceaccounts               | R     | R        | R+W       | R+W        |
 | certificates                  |       |          | R+W       | R+W        |
 | secrets                       |       |          | R+W       | R+W        |
