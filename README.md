@@ -1,9 +1,9 @@
 # gitlab2rbac
-**This is a beta version. `gitlab2rbac` is still undergoing final testing before its official release.**
+**Version 1.1.0 is the last stable version. `gitlab2rbac` is used in production with kubernetes version 1.27.**
 
 `gitlab2rbac` ensures that your Kubernetes cluster users have the same permissions than on GitLab.
 
-It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) by project as input and generates [RBAC](https://kubernetes.io/docs/admin/authorization/rbac/) objects inside Kubernetes.
+It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) by project as input and generates [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) objects inside Kubernetes.
 
 ![graph](graph.png)
 
@@ -12,7 +12,7 @@ It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) 
 Before anything else, `gitlab2rbac` requires:
 
 * [RBAC enabled on your Kubernetes cluster](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
-* [GitLab API with v4 support](https://docs.gitlab.com/ee/api/v3_to_v4.html)
+* [GitLab API with v4 support](https://docs.gitlab.com/ee/api/rest/)
 
 ### Deploy with helm
 
@@ -55,10 +55,11 @@ $ kubectl apply -f https://raw.githubusercontent.com/numberly/gitlab2rbac/master
 This will deploy `gitlab2rbac` to your cluster, under the `gitlab2rbac` namespace. The components in the manifest are:
 
 * the deployment, which is the cluster-wide controller that handles RBAC policies
-* the service account and the RBAC permissions that the controller need to function
+* the service account and the RBAC permissions that the controller needs to function
 
 ## Running locally
 ### Requirements
+* A kube environment, you can set up a [minikube](https://minikube.sigs.k8s.io/docs/)
 * Python 3 (should also work with Python 2 but it's not supported)
 * Virtualenv (recommended)
 
@@ -96,7 +97,7 @@ What we mean by `R` and `W` is defined by Kubernetes API verbs:
 #### Cluster-wide
 Any authenticated user has access to those cluster-wide resources:
 * apiservices
-* componentstatuses
+* componentstatuses (deprecated in v1.19+)
 * namespaces
 * nodes
 
