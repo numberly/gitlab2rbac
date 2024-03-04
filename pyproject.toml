@@ -1,3 +1,7 @@
 [tool.black]
 line-length = 79
 include = '\.pyi?$'
+[tool.commitizen]
+name = "cz_conventional_commits"
+changelog_start_rev = "1.1.0"
+version_provider = 'pep621'
