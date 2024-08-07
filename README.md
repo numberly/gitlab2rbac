@@ -219,18 +219,20 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 ## Advanced configuration
 `gitlab2rbac` supports multiple environment variables for advanced configuration:
 
-| Flag                                | Description                                                                 | Default    |
-|:------------------------------------|:----------------------------------------------------------------------------|:-----------|
-|`GITLAB2RBAC_FREQUENCY`              |Update interval in seconds.                                                  |60          |
-|`GITLAB_ADMINS_GROUP`                |Base your k8s admins on GitLab namespace (None means GitLab administrators). |None        |
-|`GITLAB_GROUPS_SEARCH`               |Limit to those groups (separated by commas, empty means all groups).         |gitlab2rbac |
-|`GITLAB_NAMESPACE_GRANULARITY`       |Whether to get permissions from GitLab projects or groups.                   |project     |
-|`GITLAB_PRIVATE_TOKEN`               |Configure gitlab API token.                                                  |            |
-|`GITLAB_TIMEOUT`                     |Timeout for GitLab operations, in seconds.                                   |10          |
-|`GITLAB_URL`                         |Configure gitlab API target.                                                 |            |
-|`KUBERNETES_AUTO_CREATE`             |Replicate GitLab groups/projects as Kubernetes namespaces.                   |False       |
-|`KUBERNETES_LOAD_INCLUSTER_CONFIG`   |Load configuration inside Kubernetes when gitlab2rbac runs as a pod.         |False       |
-|`KUBERNETES_TIMEOUT`                 |Timeout for Kubernetes operations, in seconds.                               |10          |
+| Flag                                | Description                                                                 | Default		|
+|:------------------------------------|:----------------------------------------------------------------------------|:------------------|
+|`GITLAB2RBAC_FREQUENCY`              |Update interval in seconds.                                                  |60			|
+|`GITLAB_ADMINS_GROUP`                |Base your k8s admins on GitLab namespace (None means GitLab administrators). |None		|
+|`GITLAB_GROUPS_IGNORE_LIST`	      |Groups to ignore (separated by commas, default value is "lost-and-found"	    |lost-and-found	|
+|`GITLAB_GROUPS_SEARCH`               |Limit to those groups (separated by commas, empty means all groups).         |gitlab2rbac 	|
+|`GITLAB_NAMESPACE_GRANULARITY`       |Whether to get permissions from GitLab projects or groups.                   |project     	|
+|`GITLAB_PRIVATE_TOKEN`               |Configure gitlab API token.                                                  |            	|
+|`GITLAB_USERNAME_IGNORE_LIST`	      |Gitlab users to ignore for the synchronisation				    |			|
+|`GITLAB_TIMEOUT`                     |Timeout for GitLab operations, in seconds.                                   |10          	|
+|`GITLAB_URL`                         |Configure gitlab API target.                                                 |            	|
+|`KUBERNETES_AUTO_CREATE`             |Replicate GitLab groups/projects as Kubernetes namespaces.                   |False       	|
+|`KUBERNETES_LOAD_INCLUSTER_CONFIG`   |Load configuration inside Kubernetes when gitlab2rbac runs as a pod.         |False       	|
+|`KUBERNETES_TIMEOUT`                 |Timeout for Kubernetes operations, in seconds.                               |10          	|
 
 ## License
 MIT
