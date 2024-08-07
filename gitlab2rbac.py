@@ -36,7 +36,7 @@ class GitlabHelper(object):
         namespace_granularity,
         admins_group,
         username_ignore_list,
-        gitlab_groups_ignore_list,
+        groups_ignore_list,
     ):
         self.client = None
         self.gitlab_users = []
@@ -48,7 +48,7 @@ class GitlabHelper(object):
         self.admins_group = admins_group
         self.namespaces = []
         self.username_ignore_list = username_ignore_list
-        self.gitlab_groups_ignore_list = gitlab_groups_ignore_list
+        self.groups_ignore_list = groups_ignore_list
 
     def connect(self):
         """Performs an authentication via private token.
@@ -274,7 +274,7 @@ query ($first: Int, $after: String) {{
             for result in gitlab_groups:
                 if (
                     result.parent_id is None
-                    and result.name not in self.gitlab_groups_ignore_list
+                    and result.name not in self.groups_ignore_list
                 ):
                     logging.info("|found group={}".format(result.name))
                     groups.append(result)
@@ -628,7 +628,7 @@ def main():
         )
 
         GITLAB2RBAC_FREQUENCY = environ.get("GITLAB2RBAC_FREQUENCY", 60)
-        USERNAME_IGNORE_LIST = environ.get("USERNAME_IGNORE_LIST", []).split(
+        GITLAB_USERNAME_IGNORE_LIST = environ.get("GITLAB_USERNAME_IGNORE_LIST", "").split(
             ","
         )
         GITLAB_GROUPS_IGNORE_LIST = environ.get(
@@ -648,8 +648,8 @@ def main():
                 groups=GITLAB_GROUPS_SEARCH,
                 namespace_granularity=GITLAB_NAMESPACE_GRANULARITY,
                 admins_group=GITLAB_ADMINS_GROUP,
-                username_ignore_list=USERNAME_IGNORE_LIST,
-                gitlab_groups_ignore_list=GITLAB_GROUPS_IGNORE_LIST,
+                username_ignore_list=GITLAB_USERNAME_IGNORE_LIST,
+                groups_ignore_list=GITLAB_GROUPS_IGNORE_LIST,
             )
             gitlab_helper.connect()
 
