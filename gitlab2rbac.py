@@ -6,7 +6,8 @@ from os import environ
 from time import sleep, time
 
 import kubernetes
-import requests
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
 from gitlab import Gitlab
 from kubernetes.client.rest import ApiException
 from slugify import slugify
@@ -15,6 +16,9 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=environ.get("LOGLEVEL", "INFO").upper(),
 )
+
+logger = logging.getLogger("gql")
+logger.setLevel(logging.WARNING)
 
 
 class GitlabHelper(object):
@@ -142,6 +146,31 @@ class GitlabHelper(object):
             return False
         return True
 
+    def _get_users_query_paginated(
+        self, gql_client, query, variable_values=None
+    ):
+        if variable_values is None:
+            variable_values = {}
+        variable_values["first"] = 50
+        raw = gql_client.execute(
+            query, variable_values=variable_values, parse_result=True
+        )
+        results = raw.get("group").get("groupMembers")
+        nodes = results.get("nodes")
+        page_info = results.get("pageInfo")
+        while page_info.get("hasNextPage"):
+            variable_values["after"] = page_info.get("endCursor")
+            results = (
+                gql_client.execute(
+                    query, variable_values=variable_values, parse_result=True
+                )
+                .get("group")
+                .get("groupMembers")
+            )
+            nodes += results.get("nodes")
+            page_info = results.get("pageInfo")
+        return nodes
+
     def get_users(self, from_namespaces=None):
         """Returns all users from groups/projects.
         We use a GraphQL to minimize the queries made to Gitlab API
@@ -162,100 +191,91 @@ class GitlabHelper(object):
         try:
             users = []
             namespaces = from_namespaces or self.namespaces
-            query = """
-query ($first: Int, $after: String) {{
-  group(fullPath: "{namespace}") {{
+            query = gql(
+                """
+query ($first: Int, $after: String, $namespace : ID!) {
+  group(fullPath: $namespace) {
     id
     name
-    parent {{
+    parent {
       id
-    }}
-    groupMembers(first: $first, after: $after) {{
-      pageInfo {{
+    }
+    groupMembers(first: $first, after: $after) {
+      pageInfo {
         endCursor
         hasNextPage
-      }}
-      nodes {{
+      }
+      nodes {
         id
-        accessLevel {{
+        accessLevel {
           integerValue
           stringValue
-        }}
-        user {{
+        }
+        user {
           id
           bot
           username
           state
-          emails {{
-            edges {{
-              node {{
+          emails {
+            edges {
+              node {
                email
-              }}
-            }}
-          }}
-        }}
-      }}
-    }}
-  }}
-}}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
 """
-            for namespace in namespaces:
-                headers = {
-                    "Authorization": "Bearer {token}".format(token=self.token),
+            )
+            transport = RequestsHTTPTransport(
+                url=f"{self.url}/api/graphql",
+                headers={
+                    "Authorization": f"Bearer {self.token}",
                     "Content-Type": "application/json",
-                }
-                has_next_page = True
-                end_cursor = None
-                while has_next_page:
-                    _start = time()
-                    variables = {"first": 50}
-                    if end_cursor:
-                        variables["after"] = end_cursor
-                    r = requests.post(
-                        f"{self.url}/api/graphql",
-                        headers=headers,
-                        json={
-                            "query": query.format(namespace=namespace.name),
-                            "variables": variables,
-                        },
-                    )
-                    r.raise_for_status()
-                    data = r.json()
-                    timespent = time() - _start
-                    logging.debug(
-                        f"Fetched members of group {namespace.name} in {timespent} seconds"
-                    )
-                    members = data["data"]["group"]["groupMembers"]["nodes"]
-                    for member in members:
-                        # ignore user if it doesn't pass some checks
-                        if not self.check_user(member["user"]):
-                            continue
+                },
+                use_json=True,
+            )
+            client = Client(
+                transport=transport, fetch_schema_from_transport=True
+            )
+            for namespace in namespaces:
+                _start = time()
+                variable_values = {"namespace": namespace.name}
+                members = self._get_users_query_paginated(
+                    client, query, variable_values
+                )
+                timespent = time() - _start
+                logging.debug(
+                    f"Fetched members of group {namespace.name} in {timespent} seconds"
+                )
+                for member in members:
+                    # ignore user if it doesn't pass some checks
+                    if not self.check_user(member["user"]):
+                        continue
 
-                        user = {
-                            "access_level": member["accessLevel"]["integerValue"],
-                            "email": member["user"]["emails"]["edges"][0]["node"][
-                                "email"
-                            ],
-                            "id": "{}".format(
-                                member["user"]["id"].replace(
-                                    "gid://gitlab/User/", ""
-                                )
-                            ),
-                            "namespace": slugify(namespace.name),
-                            "username": member["user"]["username"],
-                        }
-                        users.append(user)
-                        logging.info(
-                            "|namespace={} user={} email={} access_level={}".format(
-                                namespace.name,
-                                user["username"],
-                                user["email"],
-                                user["access_level"],
-                            )
+                    user = {
+                        "access_level": member["accessLevel"]["integerValue"],
+                        "email": member["user"]["emails"]["edges"][0]["node"][
+                            "email"
+                        ],
+                        "id": member["user"]["id"].replace(
+                            "gid://gitlab/User/", ""
+                        ),
+                        "namespace": slugify(namespace.name),
+                        "username": member["user"]["username"],
+                    }
+                    users.append(user)
+                    logging.info(
+                        "|namespace={} user={} email={} access_level={}".format(
+                            namespace.name,
+                            user["username"],
+                            user["email"],
+                            user["access_level"],
                         )
-                    page_info = data["data"]["group"]["groupMembers"]["pageInfo"]
-                    has_next_page = page_info["hasNextPage"]
-                    end_cursor = page_info["endCursor"]
+                    )
             return users
         except Exception as e:
             logging.error("unable to retrieve users :: {}".format(e))
@@ -267,7 +287,9 @@ query ($first: Int, $after: String) {{
         for group in self.groups:
             _start = time()
             gitlab_groups = self.client.groups.list(
-                search=group, include_subgroups=False, all=True, per_page=50
+                search=group,
+                top_level_only=True,
+                all=True,
             )
             timespent = time() - _start
             logging.debug(f"Fetched groups in {timespent} seconds")
@@ -628,9 +650,9 @@ def main():
         )
 
         GITLAB2RBAC_FREQUENCY = environ.get("GITLAB2RBAC_FREQUENCY", 60)
-        GITLAB_USERNAME_IGNORE_LIST = environ.get("GITLAB_USERNAME_IGNORE_LIST", "").split(
-            ","
-        )
+        GITLAB_USERNAME_IGNORE_LIST = environ.get(
+            "GITLAB_USERNAME_IGNORE_LIST", ""
+        ).split(",")
         GITLAB_GROUPS_IGNORE_LIST = environ.get(
             "GITLAB_GROUPS_IGNORE_LIST", "lost-and-found"
         ).split(",")
