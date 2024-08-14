@@ -17,8 +17,7 @@ logging.basicConfig(
     level=environ.get("LOGLEVEL", "INFO").upper(),
 )
 
-logger = logging.getLogger("gql")
-logger.setLevel(logging.WARNING)
+logging.getLogger("gql").setLevel(logging.WARNING)
 
 
 class GitlabHelper(object):
