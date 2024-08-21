@@ -154,9 +154,8 @@ class GitlabHelper(object):
         raw = gql_client.execute(
             query, variable_values=variable_values, parse_result=True
         )
-        results = raw.get("group").get("groupMembers")
-        nodes = results.get("nodes")
-        page_info = results.get("pageInfo")
+        nodes = []
+        page_info = {"hasNextPage": True}
         while page_info.get("hasNextPage"):
             variable_values["after"] = page_info.get("endCursor")
             results = (
@@ -293,10 +292,7 @@ query ($first: Int, $after: String, $namespace : ID!) {
             timespent = time() - _start
             logging.debug(f"Fetched groups in {timespent} seconds")
             for result in gitlab_groups:
-                if (
-                    result.parent_id is None
-                    and result.name not in self.groups_ignore_list
-                ):
+                if result.name not in self.groups_ignore_list:
                     logging.info("|found group={}".format(result.name))
                     groups.append(result)
         return groups
