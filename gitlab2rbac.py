@@ -3,16 +3,21 @@
 import logging
 from collections import defaultdict
 from os import environ
-from time import sleep
+from time import sleep, time
 
 import kubernetes
+from gql import gql, Client
+from gql.transport.requests import RequestsHTTPTransport
 from gitlab import Gitlab
 from kubernetes.client.rest import ApiException
 from slugify import slugify
 
 logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=environ.get("LOGLEVEL", "INFO").upper(),
 )
+
+logging.getLogger("gql").setLevel(logging.WARNING)
 
 
 class GitlabHelper(object):
@@ -25,7 +30,17 @@ class GitlabHelper(object):
         50: "maintainer",  # NOTE: owner is only usable when your permissions are based on group.
     }
 
-    def __init__(self, url, token, timeout, groups, namespace_granularity, admins_group):
+    def __init__(
+        self,
+        url,
+        token,
+        timeout,
+        groups,
+        namespace_granularity,
+        admins_group,
+        username_ignore_list,
+        groups_ignore_list,
+    ):
         self.client = None
         self.gitlab_users = []
         self.groups = groups
@@ -35,6 +50,8 @@ class GitlabHelper(object):
         self.namespace_granularity = namespace_granularity
         self.admins_group = admins_group
         self.namespaces = []
+        self.username_ignore_list = username_ignore_list
+        self.groups_ignore_list = groups_ignore_list
 
     def connect(self):
         """Performs an authentication via private token.
@@ -102,7 +119,7 @@ class GitlabHelper(object):
                         {"email": user.email, "id": "{}".format(user.id)}
                     )
                     logging.info(
-                        u"|user={} email={} access_level=admin".format(
+                        "|user={} email={} access_level=admin".format(
                             user.name, user.email
                         )
                     )
@@ -112,8 +129,49 @@ class GitlabHelper(object):
             exit(1)
         return []
 
+    def check_user(self, user):
+        if user["bot"] == True:
+            logging.debug(f"Ignore user {user['username']} because it's a bot")
+            return False
+        if user["username"] in self.username_ignore_list:
+            logging.debug(
+                f"Ignore user {user['username']} because it's in the ignore list"
+            )
+            return False
+        if user["state"] != "active":
+            logging.debug(
+                f"Ignoring user {user['username']} because is not active"
+            )
+            return False
+        return True
+
+    def _get_users_query_paginated(
+        self, gql_client, query, variable_values=None
+    ):
+        if variable_values is None:
+            variable_values = {}
+        variable_values["first"] = 50
+        raw = gql_client.execute(
+            query, variable_values=variable_values, parse_result=True
+        )
+        nodes = []
+        page_info = {"hasNextPage": True}
+        while page_info.get("hasNextPage"):
+            variable_values["after"] = page_info.get("endCursor")
+            results = (
+                gql_client.execute(
+                    query, variable_values=variable_values, parse_result=True
+                )
+                .get("group")
+                .get("groupMembers")
+            )
+            nodes += results.get("nodes")
+            page_info = results.get("pageInfo")
+        return nodes
+
     def get_users(self, from_namespaces=None):
         """Returns all users from groups/projects.
+        We use a GraphQL to minimize the queries made to Gitlab API
 
         Args:
           from_namespaces (list): Retrieve users from this namespaces.
@@ -131,23 +189,89 @@ class GitlabHelper(object):
         try:
             users = []
             namespaces = from_namespaces or self.namespaces
+            query = gql(
+                """
+query ($first: Int, $after: String, $namespace : ID!) {
+  group(fullPath: $namespace) {
+    id
+    name
+    parent {
+      id
+    }
+    groupMembers(first: $first, after: $after) {
+      pageInfo {
+        endCursor
+        hasNextPage
+      }
+      nodes {
+        id
+        accessLevel {
+          integerValue
+          stringValue
+        }
+        user {
+          id
+          bot
+          username
+          state
+          emails {
+            edges {
+              node {
+               email
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+            )
+            transport = RequestsHTTPTransport(
+                url=f"{self.url}/api/graphql",
+                headers={
+                    "Authorization": f"Bearer {self.token}",
+                    "Content-Type": "application/json",
+                },
+                use_json=True,
+            )
+            client = Client(
+                transport=transport, fetch_schema_from_transport=True
+            )
             for namespace in namespaces:
-                for member in namespace.members.list(all=True):
-                    user = self.client.users.get(member.id)
-                    users.append(
-                        {
-                            "access_level": member.access_level,
-                            "email": user.email,
-                            "id": "{}".format(user.id),
-                            "namespace": slugify(namespace.name),
-                        }
-                    )
+                _start = time()
+                variable_values = {"namespace": namespace.name}
+                members = self._get_users_query_paginated(
+                    client, query, variable_values
+                )
+                timespent = time() - _start
+                logging.debug(
+                    f"Fetched members of group {namespace.name} in {timespent} seconds"
+                )
+                for member in members:
+                    # ignore user if it doesn't pass some checks
+                    if not self.check_user(member["user"]):
+                        continue
+
+                    user = {
+                        "access_level": member["accessLevel"]["integerValue"],
+                        "email": member["user"]["emails"]["edges"][0]["node"][
+                            "email"
+                        ],
+                        "id": member["user"]["id"].replace(
+                            "gid://gitlab/User/", ""
+                        ),
+                        "namespace": slugify(namespace.name),
+                        "username": member["user"]["username"],
+                    }
+                    users.append(user)
                     logging.info(
-                        u"|namespace={} user={} email={} access_level={}".format(
+                        "|namespace={} user={} email={} access_level={}".format(
                             namespace.name,
-                            user.name,
-                            user.email,
-                            member.access_level,
+                            user["username"],
+                            user["email"],
+                            user["access_level"],
                         )
                     )
             return users
@@ -159,9 +283,17 @@ class GitlabHelper(object):
     def get_groups(self):
         groups = []
         for group in self.groups:
-            for result in self.client.groups.list(search=group, all=True):
-                if result.parent_id is None:
-                    logging.info(u"|found group={}".format(result.name))
+            _start = time()
+            gitlab_groups = self.client.groups.list(
+                search=group,
+                top_level_only=True,
+                all=True,
+            )
+            timespent = time() - _start
+            logging.debug(f"Fetched groups in {timespent} seconds")
+            for result in gitlab_groups:
+                if result.name not in self.groups_ignore_list:
+                    logging.info("|found group={}".format(result.name))
                     groups.append(result)
         return groups
 
@@ -240,11 +372,11 @@ class KubernetesHelper(object):
     def check_namespace(self, name):
         """Check if namespace exists.
 
-           Args:
-               name (str): kubernetes namespace.
+        Args:
+            name (str): kubernetes namespace.
 
-           Returns:
-               bool: True if exists, False otherwise.
+        Returns:
+            bool: True if exists, False otherwise.
         """
         try:
             namespace = self.client_core.list_namespace(
@@ -264,12 +396,12 @@ class KubernetesHelper(object):
     def check_role_binding(self, name, namespace=None):
         """Check if role binding exists.
 
-           Args:
-               name (str): user_role_binding name.
-               namespace (str): kubernetes namespace.
+        Args:
+            name (str): user_role_binding name.
+            namespace (str): kubernetes namespace.
 
-           Returns:
-               bool: True if exists, False otherwise.
+        Returns:
+            bool: True if exists, False otherwise.
         """
         try:
             full_name = "{}_{}".format(self.user_role_prefix, name)
@@ -332,7 +464,7 @@ class KubernetesHelper(object):
                     body=role_binding, _request_timeout=self.timeout
                 )
             logging.info(
-                u"|_ role-binding created name={} namespace={}".format(
+                "|_ role-binding created name={} namespace={}".format(
                     name, namespace
                 )
             )
@@ -351,7 +483,9 @@ class KubernetesHelper(object):
                 users_grouped_by_ns[user["namespace"]].append(user)
 
             for ns in users_grouped_by_ns:
-                role_bindings = self.client_rbac.list_namespaced_role_binding(ns)
+                role_bindings = self.client_rbac.list_namespaced_role_binding(
+                    ns
+                )
                 users_ids = [user["id"] for user in users_grouped_by_ns[ns]]
 
                 for role_binding in role_bindings.items:
@@ -369,14 +503,16 @@ class KubernetesHelper(object):
                             body=role_binding,
                         )
                         logging.info(
-                            u"|_ role-binding deprecated name={} namespace={}".format(
+                            "|_ role-binding deprecated name={} namespace={}".format(
                                 role_binding.metadata.name,
                                 role_binding.metadata.namespace,
                             )
                         )
         except ApiException as e:
-            error = "unable to delete deprecated user role bindings :: {}".format(
-                eval(e.body)["message"]
+            error = (
+                "unable to delete deprecated user role bindings :: {}".format(
+                    eval(e.body)["message"]
+                )
             )
             logging.error(error)
         except Exception as e:
@@ -389,7 +525,9 @@ class KubernetesHelper(object):
     def delete_deprecated_cluster_role_bindings(self, users):
         try:
             cluster_users_ids = [user["id"] for user in users]
-            for role_binding in self.client_rbac.list_cluster_role_binding().items:
+            for (
+                role_binding
+            ) in self.client_rbac.list_cluster_role_binding().items:
                 try:
                     user_id = role_binding.metadata.labels[
                         "gitlab2rbac.kubernetes.io/user_id"
@@ -403,7 +541,7 @@ class KubernetesHelper(object):
                         body=role_binding,
                     )
                     logging.info(
-                        u"|_ cluster-role-binding deprecated name={}".format(
+                        "|_ cluster-role-binding deprecated name={}".format(
                             role_binding.metadata.name,
                         )
                     )
@@ -507,6 +645,12 @@ def main():
         )
 
         GITLAB2RBAC_FREQUENCY = environ.get("GITLAB2RBAC_FREQUENCY", 60)
+        GITLAB_USERNAME_IGNORE_LIST = environ.get(
+            "GITLAB_USERNAME_IGNORE_LIST", ""
+        ).split(",")
+        GITLAB_GROUPS_IGNORE_LIST = environ.get(
+            "GITLAB_GROUPS_IGNORE_LIST", "lost-and-found"
+        ).split(",")
 
         if not GITLAB_URL or not GITLAB_PRIVATE_TOKEN:
             raise Exception(
@@ -520,7 +664,9 @@ def main():
                 timeout=GITLAB_TIMEOUT,
                 groups=GITLAB_GROUPS_SEARCH,
                 namespace_granularity=GITLAB_NAMESPACE_GRANULARITY,
-                admins_group=GITLAB_ADMINS_GROUP
+                admins_group=GITLAB_ADMINS_GROUP,
+                username_ignore_list=GITLAB_USERNAME_IGNORE_LIST,
+                groups_ignore_list=GITLAB_GROUPS_IGNORE_LIST,
             )
             gitlab_helper.connect()
 
