@@ -1,9 +1,7 @@
 # gitlab2rbac
-**Version 1.1.0 is the last stable version. `gitlab2rbac` is used in production with kubernetes version 1.27.**
+`gitlab2rbac` synchronizes Kubernetes cluster user permissions with those defined in GitLab, ensuring consistent access controls across both platforms.
 
-`gitlab2rbac` ensures that your Kubernetes cluster users have the same permissions than on GitLab.
-
-It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) by project as input and generates [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) objects inside Kubernetes.
+This tool takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) on a project level and generates corresponding [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) objects within Kubernetes.
 
 ![graph](graph.png)
 
@@ -11,8 +9,8 @@ It takes [GitLab Permissions](https://docs.gitlab.com/ee/user/permissions.html) 
 ### Requirements
 Before anything else, `gitlab2rbac` requires:
 
-* [RBAC enabled on your Kubernetes cluster](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
-* [GitLab API with v4 support](https://docs.gitlab.com/ee/api/rest/)
+* [RBAC is enabled on your Kubernetes cluster](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
+* [GitLab API v4 support is available](https://docs.gitlab.com/ee/api/rest/)
 
 ### Deploy with helm
 
@@ -23,13 +21,13 @@ helm install gitlab2rbac /path/to/chart/gitla2rbac --create-namespace gitlab2rba
 or
 
 ### Configuration
-`gitlab2rbac` needs a namespace, cluster roles and cluster role bindings. Create them with:
+`gitlab2rbac` requires a namespace, cluster roles and cluster role bindings. You can create these by executing:
 
 ```sh
 $ kubectl apply -f https://raw.githubusercontent.com/numberly/gitlab2rbac/master/deploy/configuration.yaml
 ```
 
-You will then need to create a [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) that contains all the useful information for `gitlab2rbac`:
+Next, create a [ConfigMap](https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/) containing the necessary configuration:
 
 ```sh
 cat <<EOF | kubectl create -f -
@@ -52,16 +50,18 @@ Finally, just apply the manifest:
 $ kubectl apply -f https://raw.githubusercontent.com/numberly/gitlab2rbac/master/deploy/gitlab2rbac.yaml
 ```
 
-This will deploy `gitlab2rbac` to your cluster, under the `gitlab2rbac` namespace. The components in the manifest are:
+This deployment will run `gitlab2rbac` in the `gitlab2rbac` namespace. The manifest includes:
 
-* the deployment, which is the cluster-wide controller that handles RBAC policies
-* the service account and the RBAC permissions that the controller needs to function
+* A deployment resource, which acts as the cluster-wide controller for RBAC policies.
+* A service account and associated RBAC permissions required for the controller to operate.
 
 ## Running locally
 ### Requirements
-* A kube environment, you can set up a [minikube](https://minikube.sigs.k8s.io/docs/)
-* Python 3 (should also work with Python 2 but it's not supported)
-* Virtualenv (recommended)
+To run `gitlab2rbac` locally, you need:
+
+* A Kubernetes environment, such as one set up with [minikube](https://minikube.sigs.k8s.io/docs/).
+* Python 3 (Python 2 might work but is not supported).
+* Virtualenv (recommended for environment isolation).
 
 ### Setup
 Even if `gitlab2rbac` doesn't run inside Kubernetes, it needs a cluster with existing cluster roles. Create them with:
@@ -80,141 +80,8 @@ $ virtualenv .venv && source .venv/bin/activate
 (.venv) $ GITLAB_URL={{ your GitLab instance URL }} GITLAB_PRIVATE_TOKEN={{ your GitLab private token }} python gitlab2rbac.py
 ```
 
-## Default configuration
-### Roles description
-| Role       | Use cases                | Typical examples                    |
-|:----------:|:------------------------:|-------------------------------------|
-| Guest      | Inspiration              | Someone from another team           |
-| Reporter   | Complete overview, tests | Project manager, marketing          |
-| Developer  | Deployment, debug        | Engineer, technical project manager |
-| Maintainer | Sensitive configurations | Lead/senior engineer                |
-
-### RBAC grid
-What we mean by `R` and `W` is defined by Kubernetes API verbs:
-* Read (`R`): `get`, `list`, `watch`
-* Write (`W`): `create`, `update`, `patch`, `delete`, `deletecollection`
-
-#### Cluster-wide
-Any authenticated user has access to those cluster-wide resources:
-* apiservices
-* componentstatuses (deprecated in v1.19+)
-* namespaces
-* nodes
-
-Any admin on GitLab is an admin of the Kubernetes cluster.
-
-#### Workload
-| Resource                 | Guest | Reporter | Developer | Maintainer |
-|:------------------------:|:-----:|:--------:|:---------:|:----------:|
-| cronjobs                 | R     | R        | R+W       | R+W        |
-| daemonsets               | R     | R        | R+W       | R+W        |
-| deployments              | R     | R        | R+W       | R+W        |
-| horizontalpodautoscalers | R     | R        | R+W       | R+W        |
-| ingresses                | R     | R        | R+W       | R+W        |
-| jobs                     | R     | R        | R+W       | R+W        |
-| pods                     | R     | R        | R+W       | R+W        |
-| replicasets              | R     | R        | R+W       | R+W        |
-| replicationcontrollers   | R     | R        | R+W       | R+W        |
-| services                 | R     | R        | R+W       | R+W        |
-| statefulsets             | R     | R        | R+W       | R+W        |
-| verticalpodautoscalers   | R     | R        | R+W       | R+W        |
-| events                   |       | R        | R         | R+W        |
-
-#### Actions
-| Resource                     | Guest | Reporter | Developer | Maintainer |
-|:----------------------------:|:-----:|:--------:|:---------:|:----------:|
-| pods/log                     |       | R+W      | R+W       | R+W        |
-| pods/portforward             |       | R+W      | R+W       | R+W        |
-| deployments/rollback         |       |          | R+W       | R+W        |
-| deployments/scale            |       |          | R+W       | R+W        |
-| pods/attach                  |       |          | R+W       | R+W        |
-| pods/exec                    |       |          | R+W       | R+W        |
-| replicasets/scale            |       |          | R+W       | R+W        |
-| replicationcontrollers/scale |       |          | R+W       | R+W        |
-| statefulsets/scale           |       |          | R+W       | R+W        |
-
-#### Setup
-| Resource                      | Guest | Reporter | Developer | Maintainer |
-|:-----------------------------:|:-----:|:--------:|:---------:|:----------:|
-| configmaps                    | R     | R        | R+W       | R+W        |
-| endpoints                     | R     | R        | R+W       | R+W        |
-| networkpolicies               | R     | R        | R+W       | R+W        |
-| persistentvolumeclaims        | R     | R        | R+W       | R+W        |
-| persistentvolumeclaims/status | R     | R        | R+W       | R+W        |
-| poddisruptionbudgets          | R     | R        | R+W       | R+W        |
-| poddisruptionbudgets/status   | R     | R        | R+W       | R+W        |
-| serviceaccounts               | R     | R        | R+W       | R+W        |
-| certificates                  |       |          | R+W       | R+W        |
-| secrets                       |       |          | R+W       | R+W        |
-| limitranges                   |       |          | R         | R+W        |
-| resourcequotas                |       |          | R         | R+W        |
-| rolebindings                  |       |          | R         | R+W        |
-| roles                         |       |          | R         | R+W        |
-
-<!-- Not relevant for users (yet?)
-
-#### Other cluster-wide resources
-
-* apiservices/status
-* certificatesigningrequests
-* certificatesigningrequests/approval
-* certificatesigningrequests/status
-* clusterissuers
-* clusterrolebindings
-* clusterroles
-* customresourcedefinitions
-* customresourcedefinitions/status
-* initializerconfigurations
-* mutatingwebhookconfigurations
-* namespaces/finalize
-* namespaces/status
-* nodes/proxy
-* nodes/status
-* persistentvolumes
-* persistentvolumes/status
-* podsecuritypolicies
-* priorityclasses
-* selfsubjectaccessreviews
-* selfsubjectrulesreviews
-* storageclasses
-* subjectaccessreviews
-* tokenreviews
-* validatingwebhookconfigurations
-* volumeattachments
-* volumeattachments/status
-
-#### Other namespaced resources
-
-| Resource                        | Guest | Reporter | Developer | Maintainer |
-|:-------------------------------:|:-----:|:--------:|:---------:|:----------:|
-| bindings                        |       |          |           |            |
-| challenges                      |       |          |           |            |
-| controllerrevisions             |       |          |           |            |
-| cronjobs/status                 |       |          |           |            |
-| daemonsets/status               |       |          |           |            |
-| deployments/status              |       |          |           |            |
-| horizontalpodautoscalers/status |       |          |           |            |
-| ingresses/status                |       |          |           |            |
-| issuers                         |       |          |           |            |
-| jobs/status                     |       |          |           |            |
-| leases                          |       |          |           |            |
-| localsubjectaccessreviews       |       |          |           |            |
-| orders                          |       |          |           |            |
-| poddisruptionbudgets            |       |          |           |            |
-| poddisruptionbudgets/status     |       |          |           |            |
-| podpreset                       |       |          |           |            |
-| pods/binding                    |       |          |           |            |
-| pods/proxy                      |       |          |           |            |
-| pods/eviction                   |       |          |           |            |
-| pods/status                     |       |          |           |            |
-| podtemplates                    |       |          |           |            |
-| replicasets/status              |       |          |           |            |
-| replicationcontrollers/status   |       |          |           |            |
-| resourcequotas/status           |       |          |           |            |
-| services/proxy                  |       |          |           |            |
-| services/status                 |       |          |           |            |
-| statefulsets/status             |       |          |           |            |
--->
+## Matrix GitLab role & Kubernetes resources
+**[here](./docs/matrix.md)**
 
 ## Advanced configuration
 `gitlab2rbac` supports multiple environment variables for advanced configuration:
@@ -233,6 +100,18 @@ Any admin on GitLab is an admin of the Kubernetes cluster.
 |`KUBERNETES_AUTO_CREATE`             |Replicate GitLab groups/projects as Kubernetes namespaces.                   |False       	|
 |`KUBERNETES_LOAD_INCLUSTER_CONFIG`   |Load configuration inside Kubernetes when gitlab2rbac runs as a pod.         |False       	|
 |`KUBERNETES_TIMEOUT`                 |Timeout for Kubernetes operations, in seconds.                               |10          	|
+
+## Kubernetes cluster compatibility
+
+The following table outlines the compatibility between gitlab2rbac versions and Kubernetes cluster versions. Ensure that you are using the correct version of gitlab2rbac for your Kubernetes cluster to maintain stability and functionality.
+
+:construction: not tested
+
+:green_circle: ok
+
+| GitLab2rbac Version   | k8s 1.25 | k8s 1.26 | k8s 1.27 | k8s 1.28 | k8s 1.29 | k8s 1.30 | k8s 1.31 |
+|-------------------|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
+| **0.2.4**    |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :construction:       |      :construction:       |      :construction:       |
 
 ## License
 MIT
