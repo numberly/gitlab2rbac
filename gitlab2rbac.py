@@ -1,5 +1,3 @@
-#!/usr/bin/python env
-
 import logging
 from collections import defaultdict
 from os import environ
@@ -27,7 +25,8 @@ class GitlabHelper(object):
         20: "reporter",
         30: "developer",
         40: "maintainer",
-        50: "maintainer",  # NOTE: owner is only usable when your permissions are based on group.
+        # NOTE: owner is only usable when your permissions are based on group.
+        50: "maintainer",
     }
 
     def __init__(
@@ -130,7 +129,7 @@ class GitlabHelper(object):
         return []
 
     def check_user(self, user):
-        if user["bot"] == True:
+        if user["bot"] is True:
             logging.debug(f"Ignore user {user['username']} because it's a bot")
             return False
         if user["username"] in self.username_ignore_list:
@@ -151,7 +150,7 @@ class GitlabHelper(object):
         if variable_values is None:
             variable_values = {}
         variable_values["first"] = 50
-        raw = gql_client.execute(
+        gql_client.execute(
             query, variable_values=variable_values, parse_result=True
         )
         nodes = []
