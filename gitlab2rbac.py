@@ -441,7 +441,7 @@ class KubernetesHelper(object):
                     namespace=namespace, name=name, labels=labels
                 ),
                 subjects=[
-                    kubernetes.client.V1Subject(
+                    kubernetes.client.RbacV1Subject(
                         name=user,
                         kind="User",
                         api_group="rbac.authorization.k8s.io",
