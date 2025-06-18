@@ -15,7 +15,7 @@ Before anything else, `gitlab2rbac` requires:
 ### Deploy with helm
 
 ```
-helm install gitlab2rbac /path/to/chart/gitla2rbac --create-namespace gitlab2rbac --set data.GITLAB_URL=<your_gitlab_instance_url>,data.GITLAB_PRIVATE_TOKEN=<your_private_token>,data.KUBERNETES_LOAD_INCLUSTER_CONFIG=True
+helm install gitlab2rbac /path/to/chart/gitlab2rbac --create-namespace gitlab2rbac --set data.GITLAB_URL=<your_gitlab_instance_url>,data.GITLAB_PRIVATE_TOKEN=<your_private_token>,data.KUBERNETES_LOAD_INCLUSTER_CONFIG=True
 ```
 
 or
@@ -111,7 +111,7 @@ The following table outlines the compatibility between gitlab2rbac versions and 
 
 | GitLab2rbac Version   | k8s 1.25 | k8s 1.26 | k8s 1.27 | k8s 1.28 | k8s 1.29 | k8s 1.30 | k8s 1.31 |
 |-------------------|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
-| **0.2.4**    |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :construction:       |      :construction:       |      :construction:       |
+| **0.2.4**    |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :green_circle:        |      :green_circle:        |      :green_circle:        |
 
 ## License
 MIT
