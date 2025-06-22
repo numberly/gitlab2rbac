@@ -2,11 +2,13 @@ import logging
 from collections import defaultdict
 from os import environ
 from time import sleep, time
+from typing import Any
 
 import kubernetes
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 from gitlab import Gitlab
+from gitlab.v4.objects import Project, Group
 from kubernetes.client.rest import ApiException
 from slugify import slugify
 
@@ -18,9 +20,8 @@ logging.basicConfig(
 logging.getLogger("gql").setLevel(logging.WARNING)
 
 
-class GitlabHelper(object):
-
-    ACCESS_LEVEL_REFERENCE = {
+class GitlabHelper:
+    ACCESS_LEVEL_REFERENCE: dict[int, str] = {
         10: "guest",
         20: "reporter",
         30: "developer",
@@ -31,32 +32,32 @@ class GitlabHelper(object):
 
     def __init__(
         self,
-        url,
-        token,
-        timeout,
-        groups,
-        namespace_granularity,
-        admins_group,
-        username_ignore_list,
-        groups_ignore_list,
-    ):
-        self.client = None
-        self.gitlab_users = []
+        url: str,
+        token: str,
+        timeout: int,
+        groups: list[str],
+        namespace_granularity: str,
+        admins_group: str | None,
+        username_ignore_list: list[str],
+        groups_ignore_list: list[str],
+    ) -> None:
+        self.client: Gitlab | None = None
+        self.gitlab_users: list[dict[str, Any]] = []
         self.groups = groups
         self.timeout = timeout
         self.token = token
         self.url = url
         self.namespace_granularity = namespace_granularity
         self.admins_group = admins_group
-        self.namespaces = []
+        self.namespaces: list[Group | Project] = []
         self.username_ignore_list = username_ignore_list
         self.groups_ignore_list = groups_ignore_list
 
-    def connect(self):
+    def connect(self) -> None:
         """Performs an authentication via private token.
 
         Raises:
-            exception: If any errors occurs.
+            Exception: If any errors occurs.
         """
         try:
             self.client = Gitlab(
@@ -74,14 +75,18 @@ class GitlabHelper(object):
         except Exception as e:
             raise Exception("unable to define namespaces :: {}".format(e))
 
-    def get_projects(self):
+    def get_projects(self) -> list[Project]:
         """Get all projects under the configured namespace (GITLAB_GROUP_SEARCH).
 
         Returns:
-            list[gitlab.Project]: list for success, empty otherwise.
+            list[Project]: list for success, empty otherwise.
         """
+
         try:
-            projects = []
+            projects: list[Project] = []
+            if self.client is None:
+                logging.error("Gitlab client is not connected.")
+                return projects
             for group in self.get_groups():
                 for project in group.projects.list(all=True):
                     projects.append(self.client.projects.get(project.id))
@@ -95,7 +100,7 @@ class GitlabHelper(object):
             logging.error("unable to get projects :: {}".format(e))
         return []
 
-    def get_admins(self):
+    def get_admins(self) -> list[dict[str, str]]:
         """Returns all admins.
 
         e.g. user {
@@ -104,14 +109,20 @@ class GitlabHelper(object):
             }
 
         Returns:
-            list[dict]: list for success, empty otherwise.
+            list[dict[str, str]]: list for success, empty otherwise.
         """
         try:
             if self.admins_group:
+                if self.client is None:
+                    logging.error("Gitlab client is not connected.")
+                    return []
                 ns = self.client.groups.list(search=self.admins_group)
                 return self.get_users(from_namespaces=ns) or []
 
-            admins = []
+            admins: list[dict[str, str]] = []
+            if self.client is None:
+                logging.error("Gitlab client is not connected.")
+                return admins
             for user in self.client.users.list(all=True):
                 if user.is_admin:
                     admins.append(
@@ -128,7 +139,7 @@ class GitlabHelper(object):
             exit(1)
         return []
 
-    def check_user(self, user):
+    def check_user(self, user: dict[str, Any]) -> bool:
         if user["bot"] is True:
             logging.debug(f"Ignore user {user['username']} because it's a bot")
             return False
@@ -145,16 +156,19 @@ class GitlabHelper(object):
         return True
 
     def _get_users_query_paginated(
-        self, gql_client, query, variable_values=None
-    ):
+        self,
+        gql_client: Client,
+        query: Any,
+        variable_values: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         if variable_values is None:
             variable_values = {}
         variable_values["first"] = 50
         gql_client.execute(
             query, variable_values=variable_values, parse_result=True
         )
-        nodes = []
-        page_info = {"hasNextPage": True}
+        nodes: list[dict[str, Any]] = []
+        page_info: dict[str, Any] = {"hasNextPage": True}
         while page_info.get("hasNextPage"):
             variable_values["after"] = page_info.get("endCursor")
             results = (
@@ -168,12 +182,14 @@ class GitlabHelper(object):
             page_info = results.get("pageInfo")
         return nodes
 
-    def get_users(self, from_namespaces=None):
+    def get_users(
+        self, from_namespaces: list[Group | Project] | None = None
+    ) -> list[dict[str, Any]]:
         """Returns all users from groups/projects.
         We use a GraphQL to minimize the queries made to Gitlab API
 
         Args:
-          from_namespaces (list): Retrieve users from this namespaces.
+          from_namespaces: Retrieve users from this namespaces.
 
         e.g. user {
                 'access_level': 'reporter',
@@ -183,10 +199,10 @@ class GitlabHelper(object):
             }
 
         Returns:
-            list[dict]: list for success, empty otherwise.
+            list[dict[str, Any]]: list for success, empty otherwise.
         """
         try:
-            users = []
+            users: list[dict[str, Any]] = []
             namespaces = from_namespaces or self.namespaces
             query = gql(
                 """
@@ -279,8 +295,11 @@ query ($first: Int, $after: String, $namespace : ID!) {
             exit(1)
         return []
 
-    def get_groups(self):
-        groups = []
+    def get_groups(self) -> list[Group]:
+        groups: list[Group] = []
+        if self.client is None:
+            logging.error("Gitlab client is not connected.")
+            return groups
         for group in self.groups:
             _start = time()
             gitlab_groups = self.client.groups.list(
@@ -297,20 +316,24 @@ query ($first: Int, $after: String, $namespace : ID!) {
         return groups
 
 
-class KubernetesHelper(object):
-
-    PROTECTED_NAMESPACES = ["kube-system"]
+class KubernetesHelper:
+    PROTECTED_NAMESPACES: list[str] = ["kube-system"]
 
     def __init__(
-        self, timeout, load_incluster_config, user_role_prefix="gitlab2rbac"
-    ):
-        self.client_rbac = None
-        self.client_core = None
+        self,
+        timeout: int,
+        load_incluster_config: bool,
+        user_role_prefix: str = "gitlab2rbac",
+    ) -> None:
+        self.client_rbac: kubernetes.client.RbacAuthorizationV1Api | None = (
+            None
+        )
+        self.client_core: kubernetes.client.CoreV1Api | None = None
         self.timeout = timeout
         self.load_incluster_config = load_incluster_config
         self.user_role_prefix = user_role_prefix
 
-    def connect(self):
+    def connect(self) -> None:
         try:
             if self.load_incluster_config:
                 # it works only if this script is run by K8s as a POD
@@ -323,8 +346,11 @@ class KubernetesHelper(object):
             logging.error("unable to connect :: {}".format(e))
             raise
 
-    def get_namespaces(self):
+    def get_namespaces(self) -> list[str]:
         try:
+            if self.client_core is None:
+                logging.error("Kubernetes CoreV1Api client is not connected.")
+                return []
             return [
                 namespace.metadata.name
                 for namespace in self.client_core.list_namespace(
@@ -341,8 +367,11 @@ class KubernetesHelper(object):
             logging.error("unable to retrieve namespaces :: {}".format(e))
         return []
 
-    def auto_create(self, namespaces):
+    def auto_create(self, namespaces: list[Group | Project]) -> list[Any]:
         try:
+            if self.client_core is None:
+                logging.error("Kubernetes CoreV1Api client is not connected.")
+                return []
             for namespace in namespaces:
                 slug_namespace = slugify(namespace.name)
                 labels = {
@@ -368,16 +397,19 @@ class KubernetesHelper(object):
             logging.error("unable to auto create:: {}".format(e))
         return []
 
-    def check_namespace(self, name):
+    def check_namespace(self, name: str) -> bool:
         """Check if namespace exists.
 
         Args:
-            name (str): kubernetes namespace.
+            name: kubernetes namespace.
 
         Returns:
-            bool: True if exists, False otherwise.
+            True if exists, False otherwise.
         """
         try:
+            if self.client_core is None:
+                logging.error("Kubernetes CoreV1Api client is not connected.")
+                return False
             namespace = self.client_core.list_namespace(
                 field_selector="metadata.name={}".format(name),
                 timeout_seconds=self.timeout,
@@ -392,17 +424,22 @@ class KubernetesHelper(object):
             logging.error("unable to check namespace :: {}".format(e))
         return False
 
-    def check_role_binding(self, name, namespace=None):
+    def check_role_binding(
+        self, name: str, namespace: str | None = None
+    ) -> bool:
         """Check if role binding exists.
 
         Args:
-            name (str): user_role_binding name.
-            namespace (str): kubernetes namespace.
+            name: user_role_binding name.
+            namespace: kubernetes namespace.
 
         Returns:
-            bool: True if exists, False otherwise.
+            True if exists, False otherwise.
         """
         try:
+            if self.client_rbac is None:
+                logging.error("Rbac client is not connected.")
+                return False
             full_name = "{}_{}".format(self.user_role_prefix, name)
             field_selector = "metadata.name={}".format(full_name)
             if namespace:
@@ -426,9 +463,17 @@ class KubernetesHelper(object):
         return False
 
     def create_role_binding(
-        self, user, user_id, name, role_ref, namespace=None
-    ):
+        self,
+        user: str,
+        user_id: str,
+        name: str,
+        role_ref: str,
+        namespace: str | None = None,
+    ) -> None:
         try:
+            if self.client_rbac is None:
+                logging.error("Rbac client is not connected.")
+                return
             labels = {
                 "app.kubernetes.io/managed-by": "gitlab2rbac",
                 "gitlab2rbac.kubernetes.io/role_ref": role_ref,
@@ -475,8 +520,13 @@ class KubernetesHelper(object):
         except Exception as e:
             logging.error("unable to create user role binding :: {}".format(e))
 
-    def delete_deprecated_user_role_bindings(self, users):
+    def delete_deprecated_user_role_bindings(
+        self, users: list[dict[str, Any]]
+    ) -> None:
         try:
+            if self.client_rbac is None:
+                logging.error("Rbac client is not connected.")
+                return
             users_grouped_by_ns = defaultdict(list)
             for user in users:
                 users_grouped_by_ns[user["namespace"]].append(user)
@@ -521,8 +571,13 @@ class KubernetesHelper(object):
                 )
             )
 
-    def delete_deprecated_cluster_role_bindings(self, users):
+    def delete_deprecated_cluster_role_bindings(
+        self, users: list[dict[str, Any]]
+    ) -> None:
         try:
+            if self.client_rbac is None:
+                logging.error("Rbac client is not connected.")
+                return
             cluster_users_ids = [user["id"] for user in users]
             for (
                 role_binding
@@ -557,13 +612,18 @@ class KubernetesHelper(object):
             )
 
 
-class Gitlab2RBAC(object):
-    def __init__(self, gitlab, kubernetes, kubernetes_auto_create):
+class Gitlab2RBAC:
+    def __init__(
+        self,
+        gitlab: GitlabHelper,
+        kubernetes: KubernetesHelper,
+        kubernetes_auto_create: bool,
+    ) -> None:
         self.gitlab = gitlab
         self.kubernetes = kubernetes
         self.kubernetes_auto_create = kubernetes_auto_create
 
-    def __call__(self):
+    def __call__(self) -> None:
         if self.kubernetes_auto_create:
             self.kubernetes.auto_create(namespaces=self.gitlab.namespaces)
 
@@ -579,7 +639,7 @@ class Gitlab2RBAC(object):
             users=gitlab_admins
         )
 
-    def create_admin_role_bindings(self, admins):
+    def create_admin_role_bindings(self, admins: list[dict[str, str]]) -> None:
         try:
             for admin in admins:
                 role_binding_name = "{}_admin".format(admin["email"])
@@ -597,7 +657,7 @@ class Gitlab2RBAC(object):
                 "unable to create admin role bindings :: {}".format(e)
             )
 
-    def create_user_role_bindings(self, users):
+    def create_user_role_bindings(self, users: list[dict[str, Any]]) -> None:
         try:
             for user in users:
                 namespace = user["namespace"]
@@ -622,11 +682,11 @@ class Gitlab2RBAC(object):
             )
 
 
-def main():
+def main() -> None:
     try:
         GITLAB_URL = environ.get("GITLAB_URL", None)
         GITLAB_PRIVATE_TOKEN = environ.get("GITLAB_PRIVATE_TOKEN", None)
-        GITLAB_TIMEOUT = environ.get("GITLAB_TIMEOUT", 10)
+        GITLAB_TIMEOUT = int(environ.get("GITLAB_TIMEOUT", "10"))
         GITLAB_GROUPS_SEARCH = environ.get(
             "GITLAB_GROUPS_SEARCH", "gitlab2rbac"
         ).split(",")
@@ -635,7 +695,7 @@ def main():
         )
         GITLAB_ADMINS_GROUP = environ.get("GITLAB_ADMINS_GROUP", None)
 
-        KUBERNETES_TIMEOUT = environ.get("KUBERNETES_TIMEOUT", 10)
+        KUBERNETES_TIMEOUT = int(environ.get("KUBERNETES_TIMEOUT", "10"))
         KUBERNETES_AUTO_CREATE = eval(
             environ.get("KUBERNETES_AUTO_CREATE", "False")
         )
@@ -643,7 +703,7 @@ def main():
             environ.get("KUBERNETES_LOAD_INCLUSTER_CONFIG", "False")
         )
 
-        GITLAB2RBAC_FREQUENCY = environ.get("GITLAB2RBAC_FREQUENCY", 60)
+        GITLAB2RBAC_FREQUENCY = int(environ.get("GITLAB2RBAC_FREQUENCY", "60"))
         GITLAB_USERNAME_IGNORE_LIST = environ.get(
             "GITLAB_USERNAME_IGNORE_LIST", ""
         ).split(",")
@@ -681,7 +741,7 @@ def main():
                 kubernetes_auto_create=KUBERNETES_AUTO_CREATE,
             )
             rbac()
-            sleep(int(GITLAB2RBAC_FREQUENCY))
+            sleep(GITLAB2RBAC_FREQUENCY)
     except Exception as e:
         logging.error("{}".format(e))
         exit(1)
