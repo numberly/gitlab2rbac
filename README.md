@@ -93,6 +93,7 @@ $ virtualenv .venv && source .venv/bin/activate
 |`GITLAB_GROUPS_IGNORE_LIST`	      |Groups to ignore (separated by commas, default value is "lost-and-found"	    |lost-and-found	|
 |`GITLAB_GROUPS_SEARCH`               |Limit to those groups (separated by commas, empty means all groups).         |gitlab2rbac 	|
 |`GITLAB_NAMESPACE_GRANULARITY`       |Whether to get permissions from GitLab projects or groups.                   |project     	|
+|`GITLAB_NAMESPACE_MAPPING`           |JSON mapping of GitLab paths to custom K8s namespace names (see below).      |{}          	|
 |`GITLAB_PRIVATE_TOKEN`               |Configure gitlab API token.                                                  |            	|
 |`GITLAB_USERNAME_IGNORE_LIST`	      |Gitlab users to ignore for the synchronisation				    |			|
 |`GITLAB_TIMEOUT`                     |Timeout for GitLab operations, in seconds.                                   |10          	|
@@ -100,6 +101,56 @@ $ virtualenv .venv && source .venv/bin/activate
 |`KUBERNETES_AUTO_CREATE`             |Replicate GitLab groups/projects as Kubernetes namespaces.                   |False       	|
 |`KUBERNETES_LOAD_INCLUSTER_CONFIG`   |Load configuration inside Kubernetes when gitlab2rbac runs as a pod.         |False       	|
 |`KUBERNETES_TIMEOUT`                 |Timeout for Kubernetes operations, in seconds.                               |10          	|
+
+### Custom Namespace Mapping
+
+The `GITLAB_NAMESPACE_MAPPING` environment variable allows you to map specific GitLab groups or projects to custom Kubernetes namespace names. This is useful when:
+- You want to map sub-projects to specific namespaces
+- Your Kubernetes namespace naming doesn't match your GitLab structure
+- You need to map one GitLab project to multiple Kubernetes namespaces
+
+#### Example Usage
+
+All values must be arrays (even for single namespace mappings):
+
+```sh
+# Single namespace mapping (must use array)
+export GITLAB_NAMESPACE_MAPPING='{"team-data/airflow": ["airflow-system"]}'
+
+# Multiple namespace mapping (one GitLab project to many K8s namespaces)
+export GITLAB_NAMESPACE_MAPPING='{"team-data/spark": ["spark-operator", "spark"]}'
+
+# Complete example
+export GITLAB_NAMESPACE_MAPPING='{
+  "team-data/spark": ["spark-operator", "spark"],
+  "team-data/airflow": ["airflow-system"],
+  "team-infrastructure/kubernetes": ["kube-ops", "infrastructure"]
+}'
+```
+
+Or in a Kubernetes ConfigMap:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab2rbac
+  namespace: gitlab2rbac
+data:
+  GITLAB_URL: https://gitlab.example.com
+  GITLAB_PRIVATE_TOKEN: your-token
+  GITLAB_NAMESPACE_MAPPING: |
+    {
+      "team-data/spark": ["spark-operator", "spark"],
+      "team-data/airflow": ["airflow-system"],
+      "team-infrastructure/monitoring": ["prometheus", "grafana", "alertmanager"]
+    }
+```
+
+With this configuration:
+- Users from `team-data/spark` GitLab project will get permissions in both `spark-operator` AND `spark` Kubernetes namespaces
+- Users from `team-data/airflow` will get permissions in the `airflow-system` namespace
+- Users from `team-infrastructure/monitoring` will get permissions in `prometheus`, `grafana`, AND `alertmanager` namespaces
 
 ## Kubernetes cluster compatibility
 
@@ -109,9 +160,9 @@ The following table outlines the compatibility between gitlab2rbac versions and 
 
 :green_circle: ok
 
-| GitLab2rbac Version   | k8s 1.25 | k8s 1.26 | k8s 1.27 | k8s 1.28 | k8s 1.29 | k8s 1.30 | k8s 1.31 |
+| GitLab2rbac Version   | k8s 1.25 | k8s 1.26 | k8s 1.27 | k8s 1.28 | k8s 1.29 | k8s 1.30 | k8s 1.31 | k8s 1.32 | k8s 1.33 |
 |-------------------|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
-| **0.2.4**    |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :green_circle:        |      :green_circle:        |      :green_circle:        |
+| **0.2.6**    |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :green_circle:        |      :green_circle:        |      :green_circle:        |      :green_circle:        |      :green_circle:        |
 
 ## License
 MIT

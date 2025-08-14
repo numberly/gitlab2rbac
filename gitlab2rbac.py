@@ -1,3 +1,4 @@
+import json
 import logging
 from collections import defaultdict
 from os import environ
@@ -40,6 +41,7 @@ class GitlabHelper:
         admins_group: str | None,
         username_ignore_list: list[str],
         groups_ignore_list: list[str],
+        namespace_mapping: dict[str, list[str]] | None = None,
     ) -> None:
         self.client: Gitlab | None = None
         self.gitlab_users: list[dict[str, Any]] = []
@@ -49,9 +51,11 @@ class GitlabHelper:
         self.url = url
         self.namespace_granularity = namespace_granularity
         self.admins_group = admins_group
-        self.namespaces: list[Group | Project] = []
+        self.namespaces: list[tuple[Group | Project, str]] = []
         self.username_ignore_list = username_ignore_list
         self.groups_ignore_list = groups_ignore_list
+        self.namespace_mapping = namespace_mapping or {}
+        self.namespace_name_mapping: dict[str, list[str]] = {}
 
     def connect(self) -> None:
         """Performs an authentication via private token.
@@ -68,10 +72,28 @@ class GitlabHelper:
             raise Exception("unable to connect on gitlab :: {}".format(e))
 
         try:
+            mapped_gitlab_ids = set()
+            for gitlab_path, k8s_namespaces in self.namespace_mapping.items():
+                namespace_obj = self.get_specific_group(gitlab_path)
+                if namespace_obj:
+                    mapped_gitlab_ids.add(namespace_obj.id)
+                    for k8s_namespace in k8s_namespaces:
+                        self.namespaces.append((namespace_obj, k8s_namespace))
+                    
+                    self.namespace_name_mapping[namespace_obj.name] = k8s_namespaces
+                    self.namespace_name_mapping[gitlab_path] = k8s_namespaces
+            
             if self.namespace_granularity == "group":
-                self.namespaces = self.get_groups()
+                regular_namespaces = self.get_groups()
             else:
-                self.namespaces = self.get_projects()
+                regular_namespaces = self.get_projects()
+            
+            for ns in regular_namespaces:
+                if ns.id not in mapped_gitlab_ids:
+                    k8s_name = slugify(ns.name)
+                    self.namespaces.append((ns, k8s_name))
+                    self.namespace_name_mapping[ns.name] = [k8s_name]
+                    
         except Exception as e:
             raise Exception("unable to define namespaces :: {}".format(e))
 
@@ -116,8 +138,9 @@ class GitlabHelper:
                 if self.client is None:
                     logging.error("Gitlab client is not connected.")
                     return []
-                ns = self.client.groups.list(search=self.admins_group)
-                return self.get_users(from_namespaces=ns) or []
+                ns_list = self.client.groups.list(search=self.admins_group)
+                ns_tuples = [(ns, "admin") for ns in ns_list]
+                return self.get_users(from_namespaces=ns_tuples) or []
 
             admins: list[dict[str, str]] = []
             if self.client is None:
@@ -183,7 +206,7 @@ class GitlabHelper:
         return nodes
 
     def get_users(
-        self, from_namespaces: list[Group | Project] | None = None
+        self, from_namespaces: list[tuple[Group | Project, str]] | None = None
     ) -> list[dict[str, Any]]:
         """Returns all users from groups/projects.
         We use a GraphQL to minimize the queries made to Gitlab API
@@ -203,7 +226,7 @@ class GitlabHelper:
         """
         try:
             users: list[dict[str, Any]] = []
-            namespaces = from_namespaces or self.namespaces
+            namespace_tuples = from_namespaces or self.namespaces
             query = gql(
                 """
 query ($first: Int, $after: String, $namespace : ID!) {
@@ -254,21 +277,22 @@ query ($first: Int, $after: String, $namespace : ID!) {
             client = Client(
                 transport=transport, fetch_schema_from_transport=True
             )
-            for namespace in namespaces:
+            
+            for namespace_obj, k8s_namespace in namespace_tuples:
                 _start = time()
-                variable_values = {"namespace": namespace.name}
+                variable_values = {"namespace": namespace_obj.name}
                 members = self._get_users_query_paginated(
                     client, query, variable_values
                 )
                 timespent = time() - _start
                 logging.debug(
-                    f"Fetched members of group {namespace.name} in {timespent} seconds"
+                    f"Fetched members of group {namespace_obj.name} for k8s namespace {k8s_namespace} in {timespent} seconds"
                 )
                 for member in members:
                     # ignore user if it doesn't pass some checks
                     if not self.check_user(member["user"]):
                         continue
-
+                    
                     user = {
                         "access_level": member["accessLevel"]["integerValue"],
                         "email": member["user"]["emails"]["edges"][0]["node"][
@@ -277,13 +301,14 @@ query ($first: Int, $after: String, $namespace : ID!) {
                         "id": member["user"]["id"].replace(
                             "gid://gitlab/User/", ""
                         ),
-                        "namespace": slugify(namespace.name),
+                        "namespace": k8s_namespace,
                         "username": member["user"]["username"],
                     }
                     users.append(user)
                     logging.info(
-                        "|namespace={} user={} email={} access_level={}".format(
-                            namespace.name,
+                        "|gitlab={} k8s_namespace={} user={} email={} access_level={}".format(
+                            namespace_obj.name,
+                            k8s_namespace,
                             user["username"],
                             user["email"],
                             user["access_level"],
@@ -294,6 +319,36 @@ query ($first: Int, $after: String, $namespace : ID!) {
             logging.error("unable to retrieve users :: {}".format(e))
             exit(1)
         return []
+
+    def get_specific_group(self, full_path: str) -> Group | Project | None:
+        """Get a specific group or project by its full path.
+        
+        Args:
+            full_path: Full path to the group or project (e.g., "project/kubernetes/spark")
+            
+        Returns:
+            Group or Project object if found, None otherwise.
+        """
+        try:
+            if self.client is None:
+                logging.error("Gitlab client is not connected.")
+                return None
+            
+            try:
+                group = self.client.groups.get(full_path)
+                logging.info(f"|found mapped group={full_path}")
+                return group
+            except Exception:
+                try:
+                    project = self.client.projects.get(full_path)
+                    logging.info(f"|found mapped project={full_path}")
+                    return project
+                except Exception:
+                    logging.warning(f"Unable to find group or project at path: {full_path}")
+                    return None
+        except Exception as e:
+            logging.error(f"Error fetching specific group/project {full_path}: {e}")
+            return None
 
     def get_groups(self) -> list[Group]:
         groups: list[Group] = []
@@ -367,27 +422,28 @@ class KubernetesHelper:
             logging.error("unable to retrieve namespaces :: {}".format(e))
         return []
 
-    def auto_create(self, namespaces: list[Group | Project]) -> list[Any]:
+    def auto_create(self, namespaces: list[tuple[Group | Project, str]]) -> list[Any]:
         try:
             if self.client_core is None:
                 logging.error("Kubernetes CoreV1Api client is not connected.")
                 return []
-            for namespace in namespaces:
-                slug_namespace = slugify(namespace.name)
+            
+            for namespace_obj, k8s_namespace in namespaces:
                 labels = {
-                    "app.kubernetes.io/name": slug_namespace,
+                    "app.kubernetes.io/name": k8s_namespace,
                     "app.kubernetes.io/managed-by": "gitlab2rbac",
+                    "gitlab2rbac.kubernetes.io/gitlab-name": namespace_obj.name,
                 }
-                if self.check_namespace(name=slug_namespace):
+                if self.check_namespace(name=k8s_namespace):
                     continue
                 metadata = kubernetes.client.V1ObjectMeta(
-                    name=slug_namespace, labels=labels
+                    name=k8s_namespace, labels=labels
                 )
                 namespace_body = kubernetes.client.V1Namespace(
                     metadata=metadata
                 )
                 self.client_core.create_namespace(body=namespace_body)
-                logging.info("auto create namespace={}".format(slug_namespace))
+                logging.info("auto create namespace={} (gitlab={})".format(k8s_namespace, namespace_obj.name))
         except ApiException as e:
             error = "unable to auto create :: {}".format(
                 eval(e.body)["message"]
@@ -710,6 +766,24 @@ def main() -> None:
         GITLAB_GROUPS_IGNORE_LIST = environ.get(
             "GITLAB_GROUPS_IGNORE_LIST", "lost-and-found"
         ).split(",")
+        
+        GITLAB_NAMESPACE_MAPPING = {}
+        namespace_mapping_str = environ.get("GITLAB_NAMESPACE_MAPPING", "")
+        if namespace_mapping_str:
+            try:
+                raw_mapping = json.loads(namespace_mapping_str)
+                for gitlab_path, k8s_namespaces in raw_mapping.items():
+                    if isinstance(k8s_namespaces, list):
+                        GITLAB_NAMESPACE_MAPPING[gitlab_path] = k8s_namespaces
+                    else:
+                        logging.error(f"Invalid value type for {gitlab_path}: expected list of strings, got {type(k8s_namespaces)}")
+                        raise ValueError(f"All values in GITLAB_NAMESPACE_MAPPING must be arrays")
+                logging.info(f"Loaded namespace mapping: {GITLAB_NAMESPACE_MAPPING}")
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to parse GITLAB_NAMESPACE_MAPPING: {e}")
+                logging.error("Expected JSON format, e.g.: '{\"team-data/spark\": [\"spark-operator\", \"spark\"]}'")
+            except ValueError as e:
+                logging.error(f"Invalid GITLAB_NAMESPACE_MAPPING format: {e}")
 
         if not GITLAB_URL or not GITLAB_PRIVATE_TOKEN:
             raise Exception(
@@ -726,6 +800,7 @@ def main() -> None:
                 admins_group=GITLAB_ADMINS_GROUP,
                 username_ignore_list=GITLAB_USERNAME_IGNORE_LIST,
                 groups_ignore_list=GITLAB_GROUPS_IGNORE_LIST,
+                namespace_mapping=GITLAB_NAMESPACE_MAPPING,
             )
             gitlab_helper.connect()
 
