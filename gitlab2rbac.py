@@ -681,9 +681,47 @@ class Gitlab2RBAC:
 
     def __call__(self) -> None:
         if self.kubernetes_auto_create:
+            # When auto-creating, create namespaces first, then fetch all users
             self.kubernetes.auto_create(namespaces=self.gitlab.namespaces)
+            gitlab_users = self.gitlab.get_users()
+        else:
+            # When not auto-creating, filter namespaces first, then fetch users only from existing ones
+            existing_k8s_namespaces = set(self.kubernetes.get_namespaces())
+            
+            filtered_namespaces = []
+            missing_namespaces = set()
+            skipped_gitlab_groups = set()
+            
+            for gitlab_obj, k8s_namespace in self.gitlab.namespaces:
+                if k8s_namespace in existing_k8s_namespaces:
+                    filtered_namespaces.append((gitlab_obj, k8s_namespace))
+                else:
+                    missing_namespaces.add(k8s_namespace)
+                    skipped_gitlab_groups.add(gitlab_obj.name)
+            
+            if missing_namespaces:
+                logging.warning(
+                    f"Found {len(missing_namespaces)} non-existent Kubernetes namespace(s). "
+                    f"Skipping user fetch from {len(skipped_gitlab_groups)} GitLab group(s)/project(s)."
+                )
+                for ns in sorted(missing_namespaces):
+                    logging.info(
+                        f"  - Namespace '{ns}' does not exist. "
+                        f"Enable KUBERNETES_AUTO_CREATE or create it manually."
+                    )
+                logging.info(f"Skipped GitLab groups/projects: {', '.join(sorted(skipped_gitlab_groups))}")
+            
+            if filtered_namespaces:
+                gitlab_users = self.gitlab.get_users(from_namespaces=filtered_namespaces)
+                logging.info(
+                    f"Fetched users from {len(filtered_namespaces)} GitLab group(s)/project(s) "
+                    f"with existing Kubernetes namespaces"
+                )
+            else:
+                gitlab_users = []
+                logging.warning("No GitLab groups/projects have corresponding Kubernetes namespaces")
 
-        gitlab_users = self.gitlab.get_users()
+        # Fetch admins separately (they don't depend on namespaces)
         gitlab_admins = self.gitlab.get_admins()
 
         self.create_admin_role_bindings(admins=gitlab_admins)
