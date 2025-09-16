@@ -100,6 +100,7 @@ $ virtualenv .venv && source .venv/bin/activate
 |`KUBERNETES_AUTO_CREATE`             |Replicate GitLab groups/projects as Kubernetes namespaces.                   |False       	|
 |`KUBERNETES_LOAD_INCLUSTER_CONFIG`   |Load configuration inside Kubernetes when gitlab2rbac runs as a pod.         |False       	|
 |`KUBERNETES_TIMEOUT`                 |Timeout for Kubernetes operations, in seconds.                               |10          	|
+|`SENTRY_DSN`                         |Start sentry_sdk, if set and package is installed.                           |            	|
 
 ## Kubernetes cluster compatibility
 
