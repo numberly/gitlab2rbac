@@ -23,6 +23,7 @@ logging.getLogger("gql").setLevel(logging.WARNING)
 class GitlabHelper:
     ACCESS_LEVEL_REFERENCE: dict[int, str] = {
         10: "guest",
+        15: "planner",
         20: "reporter",
         30: "developer",
         40: "maintainer",
