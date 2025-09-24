@@ -1,6 +1,7 @@
 import json
 import logging
 from collections import defaultdict
+from contextlib import suppress
 from os import environ
 from time import sleep, time
 from typing import Any
@@ -213,16 +214,18 @@ class GitlabHelper:
 
         Args:
           from_namespaces: Retrieve users from this namespaces.
+              Namespaces should be given as a list of 2-tuples with the
+              namespace object and the corresponding k8s namespace
+              e.g. [(group_obj, "spark-operator"), (project_obj, "data-platform")]
 
-        e.g. user {
+        Returns:
+            list[dict[str, Any]]: list for success, empty otherwise.
+            e.g. user {
                 'access_level': 'reporter',
                 'email': 'foo@bar.com',
                 'id': '123',
                 'namespace': 'default'
             }
-
-        Returns:
-            list[dict[str, Any]]: list for success, empty otherwise.
         """
         try:
             users: list[dict[str, Any]] = []
@@ -322,33 +325,30 @@ query ($first: Int, $after: String, $namespace : ID!) {
 
     def get_specific_group(self, full_path: str) -> Group | Project | None:
         """Get a specific group or project by its full path.
-        
+
         Args:
             full_path: Full path to the group or project (e.g., "project/kubernetes/spark")
-            
+
         Returns:
             Group or Project object if found, None otherwise.
         """
-        try:
-            if self.client is None:
-                logging.error("Gitlab client is not connected.")
-                return None
-            
-            try:
-                group = self.client.groups.get(full_path)
-                logging.info(f"|found mapped group={full_path}")
-                return group
-            except Exception:
-                try:
-                    project = self.client.projects.get(full_path)
-                    logging.info(f"|found mapped project={full_path}")
-                    return project
-                except Exception:
-                    logging.warning(f"Unable to find group or project at path: {full_path}")
-                    return None
-        except Exception as e:
-            logging.error(f"Error fetching specific group/project {full_path}: {e}")
+        if self.client is None:
+            logging.error("Gitlab client is not connected.")
             return None
+
+        # Try to get `full_path` as either a group or a project
+        with suppress(Exception):
+            group = self.client.groups.get(full_path)
+            logging.info(f"|found mapped group={full_path}")
+            return group
+
+        with suppress(Exception):
+            project = self.client.projects.get(full_path)
+            logging.info(f"|found mapped project={full_path}")
+            return project
+
+        logging.warning(f"Unable to find group or project at path: {full_path}")
+        return None
 
     def get_groups(self) -> list[Group]:
         groups: list[Group] = []
