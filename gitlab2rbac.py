@@ -14,6 +14,11 @@ from gitlab.v4.objects import Project, Group
 from kubernetes.client.rest import ApiException
 from slugify import slugify
 
+sentry_sdk = None
+if environ.get("SENTRY_DSN"):
+    with suppress(ImportError):
+        import sentry_sdk
+
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
     level=environ.get("LOGLEVEL", "INFO").upper(),
@@ -122,6 +127,8 @@ class GitlabHelper:
             return projects
         except Exception as e:
             logging.error("unable to get projects :: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         return []
 
     def get_admins(self) -> list[dict[str, str]]:
@@ -161,6 +168,8 @@ class GitlabHelper:
             return admins
         except Exception as e:
             logging.error("unable to retrieve admins :: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
             exit(1)
         return []
 
@@ -321,6 +330,8 @@ query ($first: Int, $after: String, $namespace : ID!) {
             return users
         except Exception as e:
             logging.error("unable to retrieve users :: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
             exit(1)
         return []
 
@@ -419,8 +430,12 @@ class KubernetesHelper:
                 eval(e.body)["message"]
             )
             logging.error(error)
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         except Exception as e:
             logging.error("unable to retrieve namespaces :: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         return []
 
     def auto_create(self, namespaces: list[tuple[Group | Project, str]]) -> list[Any]:
@@ -450,8 +465,12 @@ class KubernetesHelper:
                 eval(e.body)["message"]
             )
             logging.error(error)
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         except Exception as e:
             logging.error("unable to auto create:: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         return []
 
     def check_namespace(self, name: str) -> bool:
@@ -477,8 +496,12 @@ class KubernetesHelper:
                 eval(e.body)["message"]
             )
             logging.error(error)
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         except Exception as e:
             logging.error("unable to check namespace :: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         return False
 
     def check_role_binding(
@@ -515,8 +538,12 @@ class KubernetesHelper:
                 eval(e.body)["message"]
             )
             logging.error(error)
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         except Exception as e:
             logging.error("unable to check user role binding :: {}".format(e))
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         return False
 
     def create_role_binding(
@@ -621,12 +648,16 @@ class KubernetesHelper:
                 )
             )
             logging.error(error)
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         except Exception as e:
             logging.error(
                 "unable to delete deprecated user role bindings :: {}".format(
                     e
                 )
             )
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
 
     def delete_deprecated_cluster_role_bindings(
         self, users: list[dict[str, Any]]
@@ -661,12 +692,16 @@ class KubernetesHelper:
                 eval(e.body)["message"]
             )
             logging.error(error)
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
         except Exception as e:
             logging.error(
                 "unable to delete deprecated cluster role bindings :: {}".format(
                     e
                 )
             )
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
 
 
 class Gitlab2RBAC:
@@ -751,6 +786,8 @@ class Gitlab2RBAC:
             logging.error(
                 "unable to create admin role bindings :: {}".format(e)
             )
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
 
     def create_user_role_bindings(self, users: list[dict[str, Any]]) -> None:
         try:
@@ -775,9 +812,14 @@ class Gitlab2RBAC:
             logging.error(
                 "unable to create user role bindings :: {}".format(e)
             )
+            if sentry_sdk:
+                sentry_sdk.capture_exception()
 
 
 def main() -> None:
+    if sentry_sdk:
+        sentry_sdk.init()
+        logging.info("Sentry SDK initialized")
     try:
         GITLAB_URL = environ.get("GITLAB_URL", None)
         GITLAB_PRIVATE_TOKEN = environ.get("GITLAB_PRIVATE_TOKEN", None)
@@ -858,6 +900,8 @@ def main() -> None:
             sleep(GITLAB2RBAC_FREQUENCY)
     except Exception as e:
         logging.error("{}".format(e))
+        if sentry_sdk:
+            sentry_sdk.capture_exception()
         exit(1)
 
 
