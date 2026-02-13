@@ -140,6 +140,35 @@ ClusterRole:
         - get
         - list
         - watch
+    - name: gitlab2rbac:planner
+      rules:
+      - apiGroups:
+        - '*'
+        resources:
+        - cronjobs
+        - daemonsets
+        - deployments
+        - horizontalpodautoscalers
+        - ingresses
+        - jobs
+        - pods
+        - replicasets
+        - replicationcontrollers
+        - services
+        - statefulsets
+        - verticalpodautoscalers
+        - configmaps
+        - endpoints
+        - networkpolicies
+        - persistentvolumeclaims
+        - persistentvolumeclaims/status
+        - poddisruptionbudgets
+        - poddisruptionbudgets/status
+        - serviceaccounts
+        verbs:
+        - get
+        - list
+        - watch
     - name: gitlab2rbac:developer
       rules:
       - apiGroups: ["*"]
@@ -273,6 +302,11 @@ ClusterRoleBinding:
         name: gitlab2rbac
         namespace: gitlab2rbac
     - name: gitlab2rbac:reporter
+      subjects:
+      - kind: ServiceAccount
+        name: gitlab2rbac
+        namespace: gitlab2rbac
+    - name: gitlab2rbac:planner
       subjects:
       - kind: ServiceAccount
         name: gitlab2rbac

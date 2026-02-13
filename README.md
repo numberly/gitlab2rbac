@@ -162,8 +162,8 @@ The following table outlines the compatibility between gitlab2rbac versions and 
 :green_circle: ok
 
 | GitLab2rbac Version   | k8s 1.25 | k8s 1.26 | k8s 1.27 | k8s 1.28 | k8s 1.29 | k8s 1.30 | k8s 1.31 | k8s 1.32 | k8s 1.33 |
-|-------------------|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
-| **0.2.6**    |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :green_circle:        |      :green_circle:        |      :green_circle:        |      :green_circle:        |      :green_circle:        |
+|-----------------------|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|:-----------:|
+| **0.3.2**         |      :green_circle:       |      :green_circle:       |      :green_circle:      |      :green_circle:      |      :green_circle:        |      :green_circle:        |      :green_circle:      |      :green_circle:       |      :green_circle:       |
 
 ## License
 MIT

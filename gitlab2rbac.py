@@ -86,21 +86,21 @@ class GitlabHelper:
                     mapped_gitlab_ids.add(namespace_obj.id)
                     for k8s_namespace in k8s_namespaces:
                         self.namespaces.append((namespace_obj, k8s_namespace))
-                    
+
                     self.namespace_name_mapping[namespace_obj.name] = k8s_namespaces
                     self.namespace_name_mapping[gitlab_path] = k8s_namespaces
-            
+
             if self.namespace_granularity == "group":
                 regular_namespaces = self.get_groups()
             else:
                 regular_namespaces = self.get_projects()
-            
+
             for ns in regular_namespaces:
                 if ns.id not in mapped_gitlab_ids:
                     k8s_name = slugify(ns.name)
                     self.namespaces.append((ns, k8s_name))
                     self.namespace_name_mapping[ns.name] = [k8s_name]
-                    
+
         except Exception as e:
             raise Exception("unable to define namespaces :: {}".format(e))
 
@@ -120,9 +120,7 @@ class GitlabHelper:
                 for project in group.projects.list(all=True):
                     projects.append(self.client.projects.get(project.id))
                     logging.info(
-                        "|_ search group={} project={}".format(
-                            group.name, project.name
-                        )
+                        "|_ search group={} project={}".format(group.name, project.name)
                     )
             return projects
         except Exception as e:
@@ -157,9 +155,7 @@ class GitlabHelper:
                 return admins
             for user in self.client.users.list(all=True):
                 if user.is_admin:
-                    admins.append(
-                        {"email": user.email, "id": "{}".format(user.id)}
-                    )
+                    admins.append({"email": user.email, "id": "{}".format(user.id)})
                     logging.info(
                         "|user={} email={} access_level=admin".format(
                             user.name, user.email
@@ -183,9 +179,7 @@ class GitlabHelper:
             )
             return False
         if user["state"] != "active":
-            logging.debug(
-                f"Ignoring user {user['username']} because is not active"
-            )
+            logging.debug(f"Ignoring user {user['username']} because is not active")
             return False
         return True
 
@@ -198,9 +192,7 @@ class GitlabHelper:
         if variable_values is None:
             variable_values = {}
         variable_values["first"] = 50
-        gql_client.execute(
-            query, variable_values=variable_values, parse_result=True
-        )
+        gql_client.execute(query, variable_values=variable_values, parse_result=True)
         nodes: list[dict[str, Any]] = []
         page_info: dict[str, Any] = {"hasNextPage": True}
         while page_info.get("hasNextPage"):
@@ -243,7 +235,7 @@ class GitlabHelper:
             query = gql(
                 """
 query ($first: Int, $after: String, $namespace : ID!) {
-  group(fullPath: $namespace) {
+group(fullPath: $namespace) {
     id
     name
     parent {
@@ -268,7 +260,7 @@ query ($first: Int, $after: String, $namespace : ID!) {
           emails {
             edges {
               node {
-               email
+                email
               }
             }
           }
@@ -287,10 +279,8 @@ query ($first: Int, $after: String, $namespace : ID!) {
                 },
                 use_json=True,
             )
-            client = Client(
-                transport=transport, fetch_schema_from_transport=True
-            )
-            
+            client = Client(transport=transport, fetch_schema_from_transport=False)
+
             for namespace_obj, k8s_namespace in namespace_tuples:
                 _start = time()
                 variable_values = {"namespace": namespace_obj.name}
@@ -305,15 +295,11 @@ query ($first: Int, $after: String, $namespace : ID!) {
                     # ignore user if it doesn't pass some checks
                     if not self.check_user(member["user"]):
                         continue
-                    
+
                     user = {
                         "access_level": member["accessLevel"]["integerValue"],
-                        "email": member["user"]["emails"]["edges"][0]["node"][
-                            "email"
-                        ],
-                        "id": member["user"]["id"].replace(
-                            "gid://gitlab/User/", ""
-                        ),
+                        "email": member["user"]["emails"]["edges"][0]["node"]["email"],
+                        "id": member["user"]["id"].replace("gid://gitlab/User/", ""),
                         "namespace": k8s_namespace,
                         "username": member["user"]["username"],
                     }
@@ -392,9 +378,7 @@ class KubernetesHelper:
         load_incluster_config: bool,
         user_role_prefix: str = "gitlab2rbac",
     ) -> None:
-        self.client_rbac: kubernetes.client.RbacAuthorizationV1Api | None = (
-            None
-        )
+        self.client_rbac: kubernetes.client.RbacAuthorizationV1Api | None = None
         self.client_core: kubernetes.client.CoreV1Api | None = None
         self.timeout = timeout
         self.load_incluster_config = load_incluster_config
@@ -443,7 +427,7 @@ class KubernetesHelper:
             if self.client_core is None:
                 logging.error("Kubernetes CoreV1Api client is not connected.")
                 return []
-            
+
             for namespace_obj, k8s_namespace in namespaces:
                 labels = {
                     "app.kubernetes.io/name": k8s_namespace,
@@ -455,15 +439,15 @@ class KubernetesHelper:
                 metadata = kubernetes.client.V1ObjectMeta(
                     name=k8s_namespace, labels=labels
                 )
-                namespace_body = kubernetes.client.V1Namespace(
-                    metadata=metadata
-                )
+                namespace_body = kubernetes.client.V1Namespace(metadata=metadata)
                 self.client_core.create_namespace(body=namespace_body)
-                logging.info("auto create namespace={} (gitlab={})".format(k8s_namespace, namespace_obj.name))
+                logging.info(
+                    "auto create namespace={} (gitlab={})".format(
+                        k8s_namespace, namespace_obj.name
+                    )
+                )
         except ApiException as e:
-            error = "unable to auto create :: {}".format(
-                eval(e.body)["message"]
-            )
+            error = "unable to auto create :: {}".format(eval(e.body)["message"])
             logging.error(error)
             if sentry_sdk:
                 sentry_sdk.capture_exception()
@@ -492,9 +476,7 @@ class KubernetesHelper:
             )
             return bool(namespace.items)
         except ApiException as e:
-            error = "unable to check namespace :: {}".format(
-                eval(e.body)["message"]
-            )
+            error = "unable to check namespace :: {}".format(eval(e.body)["message"])
             logging.error(error)
             if sentry_sdk:
                 sentry_sdk.capture_exception()
@@ -504,9 +486,7 @@ class KubernetesHelper:
                 sentry_sdk.capture_exception()
         return False
 
-    def check_role_binding(
-        self, name: str, namespace: str | None = None
-    ) -> bool:
+    def check_role_binding(self, name: str, namespace: str | None = None) -> bool:
         """Check if role binding exists.
 
         Args:
@@ -592,9 +572,7 @@ class KubernetesHelper:
                     body=role_binding, _request_timeout=self.timeout
                 )
             logging.info(
-                "|_ role-binding created name={} namespace={}".format(
-                    name, namespace
-                )
+                "|_ role-binding created name={} namespace={}".format(name, namespace)
             )
         except ApiException as e:
             error = "unable to create user role binding :: {}".format(
@@ -604,9 +582,7 @@ class KubernetesHelper:
         except Exception as e:
             logging.error("unable to create user role binding :: {}".format(e))
 
-    def delete_deprecated_user_role_bindings(
-        self, users: list[dict[str, Any]]
-    ) -> None:
+    def delete_deprecated_user_role_bindings(self, users: list[dict[str, Any]]) -> None:
         try:
             if self.client_rbac is None:
                 logging.error("Rbac client is not connected.")
@@ -616,9 +592,7 @@ class KubernetesHelper:
                 users_grouped_by_ns[user["namespace"]].append(user)
 
             for ns in users_grouped_by_ns:
-                role_bindings = self.client_rbac.list_namespaced_role_binding(
-                    ns
-                )
+                role_bindings = self.client_rbac.list_namespaced_role_binding(ns)
                 users_ids = [user["id"] for user in users_grouped_by_ns[ns]]
 
                 for role_binding in role_bindings.items:
@@ -642,19 +616,15 @@ class KubernetesHelper:
                             )
                         )
         except ApiException as e:
-            error = (
-                "unable to delete deprecated user role bindings :: {}".format(
-                    eval(e.body)["message"]
-                )
+            error = "unable to delete deprecated user role bindings :: {}".format(
+                eval(e.body)["message"]
             )
             logging.error(error)
             if sentry_sdk:
                 sentry_sdk.capture_exception()
         except Exception as e:
             logging.error(
-                "unable to delete deprecated user role bindings :: {}".format(
-                    e
-                )
+                "unable to delete deprecated user role bindings :: {}".format(e)
             )
             if sentry_sdk:
                 sentry_sdk.capture_exception()
@@ -667,9 +637,7 @@ class KubernetesHelper:
                 logging.error("Rbac client is not connected.")
                 return
             cluster_users_ids = [user["id"] for user in users]
-            for (
-                role_binding
-            ) in self.client_rbac.list_cluster_role_binding().items:
+            for role_binding in self.client_rbac.list_cluster_role_binding().items:
                 try:
                     user_id = role_binding.metadata.labels[
                         "gitlab2rbac.kubernetes.io/user_id"
@@ -696,9 +664,7 @@ class KubernetesHelper:
                 sentry_sdk.capture_exception()
         except Exception as e:
             logging.error(
-                "unable to delete deprecated cluster role bindings :: {}".format(
-                    e
-                )
+                "unable to delete deprecated cluster role bindings :: {}".format(e)
             )
             if sentry_sdk:
                 sentry_sdk.capture_exception()
@@ -723,18 +689,18 @@ class Gitlab2RBAC:
         else:
             # When not auto-creating, filter namespaces first, then fetch users only from existing ones
             existing_k8s_namespaces = set(self.kubernetes.get_namespaces())
-            
+
             filtered_namespaces = []
             missing_namespaces = set()
             skipped_gitlab_groups = set()
-            
+
             for gitlab_obj, k8s_namespace in self.gitlab.namespaces:
                 if k8s_namespace in existing_k8s_namespaces:
                     filtered_namespaces.append((gitlab_obj, k8s_namespace))
                 else:
                     missing_namespaces.add(k8s_namespace)
                     skipped_gitlab_groups.add(gitlab_obj.name)
-            
+
             if missing_namespaces:
                 logging.warning(
                     f"Found {len(missing_namespaces)} non-existent Kubernetes namespace(s). "
@@ -745,37 +711,37 @@ class Gitlab2RBAC:
                         f"  - Namespace '{ns}' does not exist. "
                         f"Enable KUBERNETES_AUTO_CREATE or create it manually."
                     )
-                logging.info(f"Skipped GitLab groups/projects: {', '.join(sorted(skipped_gitlab_groups))}")
-            
+                logging.info(
+                    f"Skipped GitLab groups/projects: {', '.join(sorted(skipped_gitlab_groups))}"
+                )
+
             if filtered_namespaces:
-                gitlab_users = self.gitlab.get_users(from_namespaces=filtered_namespaces)
+                gitlab_users = self.gitlab.get_users(
+                    from_namespaces=filtered_namespaces
+                )
                 logging.info(
                     f"Fetched users from {len(filtered_namespaces)} GitLab group(s)/project(s) "
                     f"with existing Kubernetes namespaces"
                 )
             else:
                 gitlab_users = []
-                logging.warning("No GitLab groups/projects have corresponding Kubernetes namespaces")
+                logging.warning(
+                    "No GitLab groups/projects have corresponding Kubernetes namespaces"
+                )
 
         # Fetch admins separately (they don't depend on namespaces)
         gitlab_admins = self.gitlab.get_admins()
 
         self.create_admin_role_bindings(admins=gitlab_admins)
         self.create_user_role_bindings(users=gitlab_users)
-        self.kubernetes.delete_deprecated_user_role_bindings(
-            users=gitlab_users
-        )
-        self.kubernetes.delete_deprecated_cluster_role_bindings(
-            users=gitlab_admins
-        )
+        self.kubernetes.delete_deprecated_user_role_bindings(users=gitlab_users)
+        self.kubernetes.delete_deprecated_cluster_role_bindings(users=gitlab_admins)
 
     def create_admin_role_bindings(self, admins: list[dict[str, str]]) -> None:
         try:
             for admin in admins:
                 role_binding_name = "{}_admin".format(admin["email"])
-                if not self.kubernetes.check_role_binding(
-                    name=role_binding_name
-                ):
+                if not self.kubernetes.check_role_binding(name=role_binding_name):
                     self.kubernetes.create_role_binding(
                         user=admin["email"],
                         user_id=admin["id"],
@@ -783,9 +749,7 @@ class Gitlab2RBAC:
                         role_ref="admin",
                     )
         except Exception as e:
-            logging.error(
-                "unable to create admin role bindings :: {}".format(e)
-            )
+            logging.error("unable to create admin role bindings :: {}".format(e))
             if sentry_sdk:
                 sentry_sdk.capture_exception()
 
@@ -793,9 +757,7 @@ class Gitlab2RBAC:
         try:
             for user in users:
                 namespace = user["namespace"]
-                access_level = self.gitlab.ACCESS_LEVEL_REFERENCE[
-                    user["access_level"]
-                ]
+                access_level = self.gitlab.ACCESS_LEVEL_REFERENCE[user["access_level"]]
                 role_binding_name = "{}_{}".format(user["email"], access_level)
 
                 if not self.kubernetes.check_role_binding(
@@ -809,9 +771,7 @@ class Gitlab2RBAC:
                         role_ref=access_level,
                     )
         except Exception as e:
-            logging.error(
-                "unable to create user role bindings :: {}".format(e)
-            )
+            logging.error("unable to create user role bindings :: {}".format(e))
             if sentry_sdk:
                 sentry_sdk.capture_exception()
 
@@ -824,18 +784,16 @@ def main() -> None:
         GITLAB_URL = environ.get("GITLAB_URL", None)
         GITLAB_PRIVATE_TOKEN = environ.get("GITLAB_PRIVATE_TOKEN", None)
         GITLAB_TIMEOUT = int(environ.get("GITLAB_TIMEOUT", "10"))
-        GITLAB_GROUPS_SEARCH = environ.get(
-            "GITLAB_GROUPS_SEARCH", "gitlab2rbac"
-        ).split(",")
+        GITLAB_GROUPS_SEARCH = environ.get("GITLAB_GROUPS_SEARCH", "gitlab2rbac").split(
+            ","
+        )
         GITLAB_NAMESPACE_GRANULARITY = environ.get(
             "GITLAB_NAMESPACE_GRANULARITY", "project"
         )
         GITLAB_ADMINS_GROUP = environ.get("GITLAB_ADMINS_GROUP", None)
 
         KUBERNETES_TIMEOUT = int(environ.get("KUBERNETES_TIMEOUT", "10"))
-        KUBERNETES_AUTO_CREATE = eval(
-            environ.get("KUBERNETES_AUTO_CREATE", "False")
-        )
+        KUBERNETES_AUTO_CREATE = eval(environ.get("KUBERNETES_AUTO_CREATE", "False"))
         KUBERNETES_LOAD_INCLUSTER_CONFIG = eval(
             environ.get("KUBERNETES_LOAD_INCLUSTER_CONFIG", "False")
         )
@@ -847,7 +805,7 @@ def main() -> None:
         GITLAB_GROUPS_IGNORE_LIST = environ.get(
             "GITLAB_GROUPS_IGNORE_LIST", "lost-and-found"
         ).split(",")
-        
+
         GITLAB_NAMESPACE_MAPPING = {}
         namespace_mapping_str = environ.get("GITLAB_NAMESPACE_MAPPING", "")
         if namespace_mapping_str:
@@ -857,19 +815,23 @@ def main() -> None:
                     if isinstance(k8s_namespaces, list):
                         GITLAB_NAMESPACE_MAPPING[gitlab_path] = k8s_namespaces
                     else:
-                        logging.error(f"Invalid value type for {gitlab_path}: expected list of strings, got {type(k8s_namespaces)}")
-                        raise ValueError(f"All values in GITLAB_NAMESPACE_MAPPING must be arrays")
+                        logging.error(
+                            f"Invalid value type for {gitlab_path}: expected list of strings, got {type(k8s_namespaces)}"
+                        )
+                        raise ValueError(
+                            "All values in GITLAB_NAMESPACE_MAPPING must be arrays"
+                        )
                 logging.info(f"Loaded namespace mapping: {GITLAB_NAMESPACE_MAPPING}")
             except json.JSONDecodeError as e:
                 logging.error(f"Failed to parse GITLAB_NAMESPACE_MAPPING: {e}")
-                logging.error("Expected JSON format, e.g.: '{\"team-data/spark\": [\"spark-operator\", \"spark\"]}'")
+                logging.error(
+                    'Expected JSON format, e.g.: \'{"team-data/spark": ["spark-operator", "spark"]}\''
+                )
             except ValueError as e:
                 logging.error(f"Invalid GITLAB_NAMESPACE_MAPPING format: {e}")
 
         if not GITLAB_URL or not GITLAB_PRIVATE_TOKEN:
-            raise Exception(
-                "missing variables GITLAB_URL / GITLAB_PRIVATE_TOKEN"
-            )
+            raise Exception("missing variables GITLAB_URL / GITLAB_PRIVATE_TOKEN")
 
         while True:
             gitlab_helper = GitlabHelper(
